@@ -1,7 +1,8 @@
 # main.py
 from __future__ import annotations
 
-import json
+import csv
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,6 +29,26 @@ def add_unique_id(rows: list[dict]) -> list[dict]:
         unique_id = f"{row['store_id']}_{row['offer_ean']}_{row['offer_start_time']}"
         enriched.append({"unique_id": unique_id, **row})
     return enriched
+
+
+def log_run(outputs_dir: Path, summary: dict) -> None:
+    """
+    Append one row to outputs/run_log.csv after every pipeline run.
+    The file is created with a header on the first run, then each
+    subsequent run just appends a new row — giving you a full history
+    of every fetch at a glance.
+    """
+    log_path = outputs_dir / "run_log.csv"
+    file_exists = log_path.is_file()
+
+    with open(log_path, mode="a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=summary.keys())
+
+        # Only write the header on the very first run
+        if not file_exists:
+            writer.writeheader()
+
+        writer.writerow(summary)
 
 
 def main() -> None:
@@ -61,30 +82,27 @@ def main() -> None:
     history_inserted = store_history(conn, rows, fetched_at)
     print(f"  [history]  Inserted {history_inserted} new row(s)")
 
-    current_inserted = store_current(conn, rows)
+    current_inserted = store_current(conn, rows, fetched_at)
     print(f"  [current]  Replaced with {current_inserted} row(s)")
 
     conn.close()
 
-    # ── 4. Write run summary ──────────────────────────────────────
-    # Creates outputs/run_summary.json after every fetch so you can
-    # inspect the last run at a glance without opening the database
+    # ── 4. Log the run ────────────────────────────────────────────
+    # Appends one row to outputs/run_log.csv so you can track every
+    # fetch over time without opening the database
     outputs_dir = Path("outputs")
     outputs_dir.mkdir(exist_ok=True)
 
     summary = {
-        "timestamp":        datetime.now(timezone.utc).isoformat(),
+        "timestamp":        datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         "zip_code":         ZIP_CODE,
         "offers_fetched":   fetched_count,
         "history_inserted": history_inserted,
         "current_replaced": current_inserted,
     }
 
-    summary_path = outputs_dir / "run_summary.json"
-    with open(summary_path, "w", encoding="utf-8") as f:
-        json.dump(summary, f, indent=4)
-
-    print(f"\n  [summary]  Written to {summary_path}")
+    log_run(outputs_dir, summary)
+    print(f"  [run_log]  Row appended to outputs/run_log.csv")
 
     print("\n" + "=" * 60)
     print(f"Pipeline complete — {fetched_at}")

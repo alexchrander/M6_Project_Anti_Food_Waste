@@ -28,8 +28,6 @@ def init_db() -> sqlite3.Connection:
     # is fetched twice within the same minute it won't be duplicated.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS history (
-            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-
             -- unique_id is built from: store_id + offer_ean + offer_start_time
             -- It identifies one specific clearance deal across all fetches
             unique_id             TEXT NOT NULL,
@@ -47,7 +45,7 @@ def init_db() -> sqlite3.Connection:
             offer_new_price       REAL,
             offer_discount        REAL,
             offer_percent_discount REAL,
-            offer_stock           REAL,
+            offer_stock           INTEGER,
             offer_stock_unit      TEXT,
             offer_start_time      TEXT,
             offer_end_time        TEXT,
@@ -67,17 +65,17 @@ def init_db() -> sqlite3.Connection:
             store_hours_tomorrow  TEXT,
 
             -- Prevent inserting the exact same offer snapshot twice
-            UNIQUE(unique_id, fetched_at)
+            PRIMARY KEY (unique_id, fetched_at)
         )
     """)
 
     # ── Current table ─────────────────────────────────────────────────────────
-    # Same columns as history but without fetched_at — it's always just now.
+    # Same columns as history including fetched_at — so you can always see
+    # when the current snapshot was last updated when browsing the database.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS current (
-            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            unique_id             TEXT NOT NULL,
+            unique_id             TEXT PRIMARY KEY,
+            fetched_at            TEXT,
 
             product_ean           TEXT,
             product_description   TEXT,
@@ -89,7 +87,7 @@ def init_db() -> sqlite3.Connection:
             offer_new_price       REAL,
             offer_discount        REAL,
             offer_percent_discount REAL,
-            offer_stock           REAL,
+            offer_stock           INTEGER,
             offer_stock_unit      TEXT,
             offer_start_time      TEXT,
             offer_end_time        TEXT,
@@ -153,7 +151,7 @@ def store_history(conn: sqlite3.Connection, rows: list[dict], fetched_at: str) -
     return inserted
 
 
-def store_current(conn: sqlite3.Connection, rows: list[dict]) -> int:
+def store_current(conn: sqlite3.Connection, rows: list[dict], fetched_at: str) -> int:
     """
     Replace the current table with the latest fetch.
     Clears the table first, then inserts all fresh rows.
@@ -166,7 +164,7 @@ def store_current(conn: sqlite3.Connection, rows: list[dict]) -> int:
 
     sql = """
         INSERT INTO current (
-            unique_id,
+            unique_id, fetched_at,
             product_ean, product_description, product_image,
             offer_ean, offer_currency, offer_original_price, offer_new_price,
             offer_discount, offer_percent_discount, offer_stock, offer_stock_unit,
@@ -175,7 +173,7 @@ def store_current(conn: sqlite3.Connection, rows: list[dict]) -> int:
             store_street, store_city, store_zip, store_country,
             store_hours_today, store_hours_tomorrow
         ) VALUES (
-            :unique_id,
+            :unique_id, :fetched_at,
             :product_ean, :product_description, :product_image,
             :offer_ean, :offer_currency, :offer_original_price, :offer_new_price,
             :offer_discount, :offer_percent_discount, :offer_stock, :offer_stock_unit,
@@ -187,7 +185,7 @@ def store_current(conn: sqlite3.Connection, rows: list[dict]) -> int:
     """
 
     for row in rows:
-        cursor.execute(sql, row)
+        cursor.execute(sql, {**row, "fetched_at": fetched_at})
 
     conn.commit()
     return len(rows)
