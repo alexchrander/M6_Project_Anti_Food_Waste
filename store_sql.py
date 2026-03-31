@@ -54,18 +54,19 @@ def init_db() -> sqlite3.Connection:
             offer_last_update     TEXT,
 
             -- Store
-            store_id              TEXT,
-            store_name            TEXT,
-            store_brand           TEXT,
-            store_lat             REAL,
-            store_lng             REAL,
-            store_street          TEXT,
-            store_city            TEXT,
-            store_zip             TEXT,
-            store_country         TEXT,
-            store_hours_today     TEXT,
-            store_hours_tomorrow  TEXT,
-            store_customer_flow TEXT,
+            store_id                     TEXT,
+            store_name                   TEXT,
+            store_brand                  TEXT,
+            store_lat                    REAL,
+            store_lng                    REAL,
+            store_street                 TEXT,
+            store_city                   TEXT,
+            store_zip                    TEXT,
+            store_country                TEXT,
+            store_hours_today            TEXT,
+            store_hours_tomorrow         TEXT,
+            store_customer_flow_today    TEXT,
+            store_customer_flow_tomorrow TEXT,
 
             -- Prevent inserting the exact same offer snapshot twice
             PRIMARY KEY (unique_id, fetched_at)
@@ -98,18 +99,19 @@ def init_db() -> sqlite3.Connection:
             offer_end_time        TEXT,
             offer_last_update     TEXT,
 
-            store_id              TEXT,
-            store_name            TEXT,
-            store_brand           TEXT,
-            store_lat             REAL,
-            store_lng             REAL,
-            store_street          TEXT,
-            store_city            TEXT,
-            store_zip             TEXT,
-            store_country         TEXT,
-            store_hours_today     TEXT,
-            store_hours_tomorrow  TEXT,
-            store_customer_flow TEXT
+            store_id                     TEXT,
+            store_name                   TEXT,
+            store_brand                  TEXT,
+            store_lat                    REAL,
+            store_lng                    REAL,
+            store_street                 TEXT,
+            store_city                   TEXT,
+            store_zip                    TEXT,
+            store_country                TEXT,
+            store_hours_today            TEXT,
+            store_hours_tomorrow         TEXT,
+            store_customer_flow_today    TEXT,
+            store_customer_flow_tomorrow TEXT
         )
     """)
 
@@ -138,7 +140,7 @@ def store_history(conn: sqlite3.Connection, rows: list[dict], fetched_at: str) -
             store_id, store_name, store_brand, store_lat, store_lng,
             store_street, store_city, store_zip, store_country,
             store_hours_today, store_hours_tomorrow,
-            store_customer_flow
+            store_customer_flow_today, store_customer_flow_tomorrow
         ) VALUES (
             :unique_id, :fetched_at,
             :product_ean, :product_description, :product_image,
@@ -149,7 +151,7 @@ def store_history(conn: sqlite3.Connection, rows: list[dict], fetched_at: str) -
             :store_id, :store_name, :store_brand, :store_lat, :store_lng,
             :store_street, :store_city, :store_zip, :store_country,
             :store_hours_today, :store_hours_tomorrow,
-            :store_customer_flow
+            :store_customer_flow_today, :store_customer_flow_tomorrow
         )
     """
 
@@ -183,7 +185,7 @@ def store_current(conn: sqlite3.Connection, rows: list[dict], fetched_at: str) -
             store_id, store_name, store_brand, store_lat, store_lng,
             store_street, store_city, store_zip, store_country,
             store_hours_today, store_hours_tomorrow,
-            store_customer_flow
+            store_customer_flow_today, store_customer_flow_tomorrow
         ) VALUES (
             :unique_id, :fetched_at,
             :product_ean, :product_description, :product_image,
@@ -194,7 +196,7 @@ def store_current(conn: sqlite3.Connection, rows: list[dict], fetched_at: str) -
             :store_id, :store_name, :store_brand, :store_lat, :store_lng,
             :store_street, :store_city, :store_zip, :store_country,
             :store_hours_today, :store_hours_tomorrow,
-            :store_customer_flow
+            :store_customer_flow_today, :store_customer_flow_tomorrow
         )
     """
 

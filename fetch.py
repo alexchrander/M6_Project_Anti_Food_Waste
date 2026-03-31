@@ -46,18 +46,21 @@ def parse_hours_today_tomorrow(hours: list[dict]) -> tuple[str, str]:
     return today, tomorrow
 
 
-def parse_customer_flow(hours: list[dict]) -> str:
+def parse_customer_flow(hours: list[dict]) -> tuple[str, str]:
     """
-    Extract and flatten the customerFlow arrays from the store hours entries.
+    Extract customerFlow arrays separately for today and tomorrow.
     customerFlow is a list of numbers representing store busyness per hour.
-    We join all values across both days into a single comma-separated string.
-    Example output: "0,5,12,8,3,0" or "N/A" if not present.
+    The API returns index 0 = today, index 1 = tomorrow.
+    Each is stored as a comma-separated string e.g. "0,5,12,8,3".
+    Returns a tuple of (today_flow, tomorrow_flow).
     """
-    all_values = []
-    for entry in hours:
+    def extract_flow(entry: dict) -> str:
         flow = entry.get("customerFlow", [])
-        all_values.extend([str(v) for v in flow])
-    return ",".join(all_values) if all_values else "N/A"
+        return ",".join(str(v) for v in flow) if flow else "N/A"
+
+    today    = extract_flow(hours[0] if len(hours) > 0 else {})
+    tomorrow = extract_flow(hours[1] if len(hours) > 1 else {})
+    return today, tomorrow
 
 
 def format_timestamp(raw: str) -> str:
@@ -125,8 +128,8 @@ def fetch_food_waste() -> list[dict[str, Any]]:
         # Split opening hours into two separate columns: today and tomorrow
         store_hours_today, store_hours_tomorrow = parse_hours_today_tomorrow(hours)
 
-        # Flatten customerFlow arrays from both days into a single string
-        customer_flow = parse_customer_flow(hours)
+        # Split customerFlow into today and tomorrow separately
+        store_customer_flow_today, store_customer_flow_tomorrow = parse_customer_flow(hours)
 
         # --- Loop over each clearance offer in this store ---
         for item in store.get("clearances", []):
@@ -158,18 +161,19 @@ def fetch_food_waste() -> list[dict[str, Any]]:
                 "offer_last_update":      format_timestamp(offer.get("lastUpdate", "N/A")),
 
                 # Store
-                "store_id":              store_info.get("id",    "N/A"),
-                "store_name":            store_info.get("name",  "N/A"),
-                "store_brand":           store_info.get("brand", "N/A"),
-                "store_lat":             store_lat,
-                "store_lng":             store_lng,
-                "store_street":          address.get("street",  "N/A"),
-                "store_city":            address.get("city",    "N/A"),
-                "store_zip":             address.get("zip",     "N/A"),
-                "store_country":         address.get("country", "N/A"),
-                "store_hours_today":     store_hours_today,
-                "store_hours_tomorrow":  store_hours_tomorrow,
-                "store_customer_flow": customer_flow,
+                "store_id":                      store_info.get("id",    "N/A"),
+                "store_name":                    store_info.get("name",  "N/A"),
+                "store_brand":                   store_info.get("brand", "N/A"),
+                "store_lat":                     store_lat,
+                "store_lng":                     store_lng,
+                "store_street":                  address.get("street",  "N/A"),
+                "store_city":                    address.get("city",    "N/A"),
+                "store_zip":                     address.get("zip",     "N/A"),
+                "store_country":                 address.get("country", "N/A"),
+                "store_hours_today":             store_hours_today,
+                "store_hours_tomorrow":          store_hours_tomorrow,
+                "store_customer_flow_today":     store_customer_flow_today,
+                "store_customer_flow_tomorrow":  store_customer_flow_tomorrow,
             })
 
     return rows
