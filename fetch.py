@@ -46,6 +46,20 @@ def parse_hours_today_tomorrow(hours: list[dict]) -> tuple[str, str]:
     return today, tomorrow
 
 
+def parse_customer_flow(hours: list[dict]) -> str:
+    """
+    Extract and flatten the customerFlow arrays from the store hours entries.
+    customerFlow is a list of numbers representing store busyness per hour.
+    We join all values across both days into a single comma-separated string.
+    Example output: "0,5,12,8,3,0" or "N/A" if not present.
+    """
+    all_values = []
+    for entry in hours:
+        flow = entry.get("customerFlow", [])
+        all_values.extend([str(v) for v in flow])
+    return ",".join(all_values) if all_values else "N/A"
+
+
 def format_timestamp(raw: str) -> str:
     """
     Convert an API ISO 8601 timestamp to a Darts-compatible datetime string.
@@ -111,16 +125,24 @@ def fetch_food_waste() -> list[dict[str, Any]]:
         # Split opening hours into two separate columns: today and tomorrow
         store_hours_today, store_hours_tomorrow = parse_hours_today_tomorrow(hours)
 
+        # Flatten customerFlow arrays from both days into a single string
+        customer_flow = parse_customer_flow(hours)
+
         # --- Loop over each clearance offer in this store ---
         for item in store.get("clearances", []):
             offer   = item.get("offer",   {})
             product = item.get("product", {})
 
+            # Categories is a nested dict with "da" and "en" keys
+            categories = product.get("categories", {})
+
             rows.append({
                 # Product
-                "product_ean":         product.get("ean",         "N/A"),
-                "product_description": product.get("description", "N/A"),
-                "product_image":       product.get("image",       "N/A"),
+                "product_ean":          product.get("ean",         "N/A"),
+                "product_description":  product.get("description", "N/A"),
+                "product_image":        product.get("image",       "N/A"),
+                "product_category_da":  categories.get("da",       "N/A"),
+                "product_category_en":  categories.get("en",       "N/A"),
 
                 # Offer — timestamps formatted for Darts (timezone-naive ISO 8601)
                 "offer_ean":              offer.get("ean",             "N/A"),
@@ -136,17 +158,18 @@ def fetch_food_waste() -> list[dict[str, Any]]:
                 "offer_last_update":      format_timestamp(offer.get("lastUpdate", "N/A")),
 
                 # Store
-                "store_id":             store_info.get("id",    "N/A"),
-                "store_name":           store_info.get("name",  "N/A"),
-                "store_brand":          store_info.get("brand", "N/A"),
-                "store_lat":            store_lat,
-                "store_lng":            store_lng,
-                "store_street":         address.get("street",  "N/A"),
-                "store_city":           address.get("city",    "N/A"),
-                "store_zip":            address.get("zip",     "N/A"),
-                "store_country":        address.get("country", "N/A"),
-                "store_hours_today":    store_hours_today,
-                "store_hours_tomorrow": store_hours_tomorrow,
+                "store_id":              store_info.get("id",    "N/A"),
+                "store_name":            store_info.get("name",  "N/A"),
+                "store_brand":           store_info.get("brand", "N/A"),
+                "store_lat":             store_lat,
+                "store_lng":             store_lng,
+                "store_street":          address.get("street",  "N/A"),
+                "store_city":            address.get("city",    "N/A"),
+                "store_zip":             address.get("zip",     "N/A"),
+                "store_country":         address.get("country", "N/A"),
+                "store_hours_today":     store_hours_today,
+                "store_hours_tomorrow":  store_hours_tomorrow,
+                "store_customer_flow": customer_flow,
             })
 
     return rows

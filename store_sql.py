@@ -37,6 +37,8 @@ def init_db() -> sqlite3.Connection:
             product_ean           TEXT,
             product_description   TEXT,
             product_image         TEXT,
+            product_category_da   TEXT,
+            product_category_en   TEXT,
 
             -- Offer
             offer_ean             TEXT,
@@ -63,6 +65,7 @@ def init_db() -> sqlite3.Connection:
             store_country         TEXT,
             store_hours_today     TEXT,
             store_hours_tomorrow  TEXT,
+            store_customer_flow TEXT,
 
             -- Prevent inserting the exact same offer snapshot twice
             PRIMARY KEY (unique_id, fetched_at)
@@ -80,6 +83,8 @@ def init_db() -> sqlite3.Connection:
             product_ean           TEXT,
             product_description   TEXT,
             product_image         TEXT,
+            product_category_da   TEXT,
+            product_category_en   TEXT,
 
             offer_ean             TEXT,
             offer_currency        TEXT,
@@ -103,7 +108,8 @@ def init_db() -> sqlite3.Connection:
             store_zip             TEXT,
             store_country         TEXT,
             store_hours_today     TEXT,
-            store_hours_tomorrow  TEXT
+            store_hours_tomorrow  TEXT,
+            store_customer_flow TEXT
         )
     """)
 
@@ -125,21 +131,25 @@ def store_history(conn: sqlite3.Connection, rows: list[dict], fetched_at: str) -
         INSERT OR IGNORE INTO history (
             unique_id, fetched_at,
             product_ean, product_description, product_image,
+            product_category_da, product_category_en,
             offer_ean, offer_currency, offer_original_price, offer_new_price,
             offer_discount, offer_percent_discount, offer_stock, offer_stock_unit,
             offer_start_time, offer_end_time, offer_last_update,
             store_id, store_name, store_brand, store_lat, store_lng,
             store_street, store_city, store_zip, store_country,
-            store_hours_today, store_hours_tomorrow
+            store_hours_today, store_hours_tomorrow,
+            store_customer_flow
         ) VALUES (
             :unique_id, :fetched_at,
             :product_ean, :product_description, :product_image,
+            :product_category_da, :product_category_en,
             :offer_ean, :offer_currency, :offer_original_price, :offer_new_price,
             :offer_discount, :offer_percent_discount, :offer_stock, :offer_stock_unit,
             :offer_start_time, :offer_end_time, :offer_last_update,
             :store_id, :store_name, :store_brand, :store_lat, :store_lng,
             :store_street, :store_city, :store_zip, :store_country,
-            :store_hours_today, :store_hours_tomorrow
+            :store_hours_today, :store_hours_tomorrow,
+            :store_customer_flow
         )
     """
 
@@ -166,21 +176,25 @@ def store_current(conn: sqlite3.Connection, rows: list[dict], fetched_at: str) -
         INSERT INTO current (
             unique_id, fetched_at,
             product_ean, product_description, product_image,
+            product_category_da, product_category_en,
             offer_ean, offer_currency, offer_original_price, offer_new_price,
             offer_discount, offer_percent_discount, offer_stock, offer_stock_unit,
             offer_start_time, offer_end_time, offer_last_update,
             store_id, store_name, store_brand, store_lat, store_lng,
             store_street, store_city, store_zip, store_country,
-            store_hours_today, store_hours_tomorrow
+            store_hours_today, store_hours_tomorrow,
+            store_customer_flow
         ) VALUES (
             :unique_id, :fetched_at,
             :product_ean, :product_description, :product_image,
+            :product_category_da, :product_category_en,
             :offer_ean, :offer_currency, :offer_original_price, :offer_new_price,
             :offer_discount, :offer_percent_discount, :offer_stock, :offer_stock_unit,
             :offer_start_time, :offer_end_time, :offer_last_update,
             :store_id, :store_name, :store_brand, :store_lat, :store_lng,
             :store_street, :store_city, :store_zip, :store_country,
-            :store_hours_today, :store_hours_tomorrow
+            :store_hours_today, :store_hours_tomorrow,
+            :store_customer_flow
         )
     """
 
