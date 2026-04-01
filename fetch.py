@@ -20,13 +20,13 @@ def build_url() -> str:
     return f"{BASE_URL}?zip={ZIP_CODE}"
 
 
-def parse_single_hours(entry: dict) -> str:
+def parse_single_hours(entry: dict) -> str | None:
     """
     Format a single store hours entry into a readable string.
     Example output: "07:00-22:00" or "closed"
     """
     if not entry:
-        return "N/A"
+        return None
     if entry.get("closed", False):
         return "closed"
     # Slice just the HH:MM portion from the full ISO timestamp e.g. "2024-01-01T07:00:00"
@@ -35,7 +35,7 @@ def parse_single_hours(entry: dict) -> str:
     return f"{open_time}-{close_time}"
 
 
-def parse_hours_today_tomorrow(hours: list[dict]) -> tuple[str, str]:
+def parse_hours_today_tomorrow(hours: list[dict]) -> tuple[str | None, str | None]:
     """
     Split the store hours array into today and tomorrow.
     The API always returns exactly two entries: index 0 = today, index 1 = tomorrow.
@@ -46,7 +46,7 @@ def parse_hours_today_tomorrow(hours: list[dict]) -> tuple[str, str]:
     return today, tomorrow
 
 
-def parse_customer_flow(hours: list[dict]) -> tuple[str, str]:
+def parse_customer_flow(hours: list[dict]) -> tuple[str | None, str | None]:
     """
     Extract customerFlow arrays separately for today and tomorrow.
     customerFlow is a list of numbers representing store busyness per hour.
@@ -54,16 +54,16 @@ def parse_customer_flow(hours: list[dict]) -> tuple[str, str]:
     Each is stored as a comma-separated string e.g. "0,5,12,8,3".
     Returns a tuple of (today_flow, tomorrow_flow).
     """
-    def extract_flow(entry: dict) -> str:
+    def extract_flow(entry: dict) -> str | None:
         flow = entry.get("customerFlow", [])
-        return ",".join(str(v) for v in flow) if flow else "N/A"
+        return ",".join(str(v) for v in flow) if flow else None
 
     today    = extract_flow(hours[0] if len(hours) > 0 else {})
     tomorrow = extract_flow(hours[1] if len(hours) > 1 else {})
     return today, tomorrow
 
 
-def format_timestamp(raw: str) -> str:
+def format_timestamp(raw: str | None) -> str | None:
     """
     Convert an API ISO 8601 timestamp to a Darts-compatible datetime string.
 
@@ -75,7 +75,7 @@ def format_timestamp(raw: str) -> str:
     at the same timezone when building your time series later.
     """
     if not raw or raw == "N/A":
-        return "N/A"
+        return None
     # Replace the "T" separator with a space, then cut off milliseconds and "Z"
     # "2019-11-15T22:23:23.000Z" -> "2019-11-15 22:23:23"
     return raw.replace("T", " ")[:19]
@@ -141,35 +141,35 @@ def fetch_food_waste() -> list[dict[str, Any]]:
 
             rows.append({
                 # Product
-                "product_ean":          product.get("ean",         "N/A"),
-                "product_description":  product.get("description", "N/A"),
-                "product_image":        product.get("image",       "N/A"),
-                "product_category_da":  categories.get("da",       "N/A"),
-                "product_category_en":  categories.get("en",       "N/A"),
+                "product_ean":          product.get("ean",         None),
+                "product_description":  product.get("description", None),
+                "product_image":        product.get("image",       None),
+                "product_category_da":  categories.get("da",       None),
+                "product_category_en":  categories.get("en",       None),
 
                 # Offer — timestamps formatted for Darts (timezone-naive ISO 8601)
-                "offer_ean":              offer.get("ean",             "N/A"),
-                "offer_currency":         offer.get("currency",        "N/A"),
-                "offer_original_price":   offer.get("originalPrice",   "N/A"),
-                "offer_new_price":        offer.get("newPrice",        "N/A"),
-                "offer_discount":         offer.get("discount",        "N/A"),
-                "offer_percent_discount": offer.get("percentDiscount", "N/A"),
-                "offer_stock":            offer.get("stock",           "N/A"),
-                "offer_stock_unit":       offer.get("stockUnit",       "N/A"),
-                "offer_start_time":       format_timestamp(offer.get("startTime",  "N/A")),
-                "offer_end_time":         format_timestamp(offer.get("endTime",    "N/A")),
-                "offer_last_update":      format_timestamp(offer.get("lastUpdate", "N/A")),
+                "offer_ean":              offer.get("ean",             None),
+                "offer_currency":         offer.get("currency",        None),
+                "offer_original_price":   offer.get("originalPrice",   None),
+                "offer_new_price":        offer.get("newPrice",        None),
+                "offer_discount":         offer.get("discount",        None),
+                "offer_percent_discount": offer.get("percentDiscount", None),
+                "offer_stock":            offer.get("stock",           None),
+                "offer_stock_unit":       offer.get("stockUnit",       None),
+                "offer_start_time":       format_timestamp(offer.get("startTime",  None)),
+                "offer_end_time":         format_timestamp(offer.get("endTime",    None)),
+                "offer_last_update":      format_timestamp(offer.get("lastUpdate", None)),
 
                 # Store
-                "store_id":                      store_info.get("id",    "N/A"),
-                "store_name":                    store_info.get("name",  "N/A"),
-                "store_brand":                   store_info.get("brand", "N/A"),
+                "store_id":                      store_info.get("id",    None),
+                "store_name":                    store_info.get("name",  None),
+                "store_brand":                   store_info.get("brand", None),
                 "store_lat":                     store_lat,
                 "store_lng":                     store_lng,
-                "store_street":                  address.get("street",  "N/A"),
-                "store_city":                    address.get("city",    "N/A"),
-                "store_zip":                     address.get("zip",     "N/A"),
-                "store_country":                 address.get("country", "N/A"),
+                "store_street":                  address.get("street",  None),
+                "store_city":                    address.get("city",    None),
+                "store_zip":                     address.get("zip",     None),
+                "store_country":                 address.get("country", None),
                 "store_hours_today":             store_hours_today,
                 "store_hours_tomorrow":          store_hours_tomorrow,
                 "store_customer_flow_today":     store_customer_flow_today,

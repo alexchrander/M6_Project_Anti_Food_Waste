@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import csv
-import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -56,6 +56,9 @@ def main() -> None:
     print("Anti Food Waste Pipeline")
     print("=" * 60)
 
+    # Start timer for run duration
+    start_time = time.time()
+
     # ── 1. Fetch ──────────────────────────────────────────────────
     print("\n[1/3] Fetching offers from Salling API...")
     rows = fetch_food_waste()
@@ -76,7 +79,7 @@ def main() -> None:
     fetched_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # ── 3. Store ──────────────────────────────────────────────────
-    print("\n[3/3] Storing data in SQLite...")
+    print("\n[3/3] Storing data in MySQL...")
     conn = init_db()
 
     history_inserted = store_history(conn, rows, fetched_at)
@@ -85,20 +88,21 @@ def main() -> None:
     current_inserted = store_current(conn, rows, fetched_at)
     print(f"  [current]  Replaced with {current_inserted} row(s)")
 
-    conn.close()
-
     # ── 4. Log the run ────────────────────────────────────────────
     # Appends one row to outputs/run_log.csv so you can track every
     # fetch over time without opening the database
     outputs_dir = Path("outputs")
     outputs_dir.mkdir(exist_ok=True)
 
+    conn.close()
+
     summary = {
-        "timestamp":        datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-        "zip_code":         ZIP_CODE,
-        "offers_fetched":   fetched_count,
-        "history_inserted": history_inserted,
-        "current_replaced": current_inserted,
+        "timestamp":            datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        "zip_code":             ZIP_CODE,
+        "run_duration_seconds": round(time.time() - start_time, 2),
+        "offers_fetched":       fetched_count,
+        "history_inserted":     history_inserted,
+        "current_replaced":     current_inserted,
     }
 
     log_run(outputs_dir, summary)

@@ -8,20 +8,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Paths ────────────────────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-
 # ── API settings ─────────────────────────────────────────────────────────────
-# Base URL for the Salling Anti Food Waste API
 BASE_URL = "https://api.sallinggroup.com/v1/food-waste"
-
-# Zip code to query — change this to fetch from a different area
 ZIP_CODE = os.getenv("ZIP_CODE", "9000")
 
-# ── Storage settings ─────────────────────────────────────────────────────────
-# Single SQLite database file that holds both tables:
-#   - history:  every fetch appended (used for ML training)
-#   - current:  only the latest fetch (overwritten each run)
-DB_PATH = os.getenv("DB_PATH", str(DATA_DIR / "food_waste.db"))
+# ── MySQL connection settings ─────────────────────────────────────────────────
+# These are read from environment variables — never hardcode credentials!
+# Locally: add them to your .env file
+# UCloud: they are set directly here since we connect via sql-net internally
+DB_HOST     = os.getenv("DB_HOST",     "sql-net")
+DB_PORT     = int(os.getenv("DB_PORT", "3306"))
+DB_NAME     = os.getenv("DB_NAME",     "food_waste")
+DB_USER     = os.getenv("DB_USER",     "food_waste_user")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "food_waste_alex")
