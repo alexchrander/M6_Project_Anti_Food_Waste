@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "=== Starting pipeline at $(date) ==="
+echo "=== Starting fetch pipeline at $(date) ==="
 
 # 1. Navigate to your project folder
 cd /work/M6_Project_Anti_Food_Waste
@@ -8,6 +8,6 @@ cd /work/M6_Project_Anti_Food_Waste
 source /work/.venv/bin/activate
 
 # 3. Run the python script
-python3 main.py
+python3 fetch_pipeline/run_fetch.py
 
-echo "=== Pipeline finished ==="
+echo "=== Fetch Pipeline finished ==="

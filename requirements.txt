@@ -2,3 +2,8 @@ requests
 python-dotenv
 mysql-connector-python
 pandas
+pyarrow
+lightgbm
+mlflow
+scikit-learn
+streamlit

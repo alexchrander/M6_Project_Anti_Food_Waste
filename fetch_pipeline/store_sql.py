@@ -1,5 +1,10 @@
-# store_sql.py
 from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+# Add project root to path so config.py is found
+sys.path.append(str(Path(__file__).parent.parent))
 
 import mysql.connector
 from mysql.connector import connection
@@ -29,10 +34,10 @@ def init_db() -> connection.MySQLConnection:
       - history: append-only, one row per offer per fetch — used for ML training.
       - current: replaced on every fetch — always reflects live offers right now.
     """
-    conn = get_connection()
+    conn   = get_connection()
     cursor = conn.cursor()
 
-    # ── History table ─────────────────────────────────────────────────────────
+    # ── History table ──────────────────────────────────────────────────────────
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS history (
             unique_id              TEXT NOT NULL,
@@ -69,7 +74,7 @@ def init_db() -> connection.MySQLConnection:
         )
     """)
 
-    # ── Current table ─────────────────────────────────────────────────────────
+    # ── Current table ──────────────────────────────────────────────────────────
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS current (
             unique_id              TEXT NOT NULL,
