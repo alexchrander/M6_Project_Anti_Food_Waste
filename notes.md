@@ -31,3 +31,5 @@
 * App.py laves i henhold til predict.py og predict tabellen fra MySQL. Alexander skal nok hjælpe med at give det indledende kode, så det henter rigtigt fra databasen.
 * Begynd det indlende arbejde med vores projektskrivning. Start et overleaf projekt og få dokumenteret processer.
 * Lav et shell script for predict.py magen til de andre + få sat automatisk cron kørsel op ligesom de andre to automatiske processer.
+* Skal vi bruge LLM i vores pipeline? 
+* Burde vi bruge wandb? For logging og visualisering af vores nl pipeline? 
