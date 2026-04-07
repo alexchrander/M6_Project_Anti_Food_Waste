@@ -31,8 +31,13 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def parse_timestamps(df: pd.DataFrame) -> pd.DataFrame:
-    for col in ["fetched_at", "offer_start_time", "offer_end_time"]:
-        df[col] = pd.to_datetime(df[col])
+    # offer_start_time, offer_end_time, offer_last_update come from the Salling API in UTC.
+    # fetched_at is stored in CEST (+2h). Shift the API timestamps +2h so everything is CEST.
+    # This also corrects hours_on_clearance, which compares offer_start_time to fetched_at.
+    for col in ["offer_start_time", "offer_end_time", "offer_last_update"]:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col]) + pd.Timedelta(hours=2)
+    df["fetched_at"] = pd.to_datetime(df["fetched_at"])
     return df
 
 

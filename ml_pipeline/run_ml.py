@@ -155,13 +155,9 @@ def main():
     if run_step("build_dataset.py") != 0:
         abort(timestamp, start_time, retrain_triggered, "build_dataset")
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # TODO: ADD feature_engineering.py HERE once it exists
-    # Uncomment the block below when ready:
-    #
-    # if run_step("feature_engineering.py") != 0:
-    #     abort(timestamp, start_time, retrain_triggered, "feature_engineering")
-    # ══════════════════════════════════════════════════════════════════════════
+    # ── Step 1.5: build_features.py ────────────────────────────────────────────
+    if run_step("build_features.py") != 0:
+        abort(timestamp, start_time, retrain_triggered, "build_features")
 
     # ── Step 2: preprocessing.py ───────────────────────────────────────────────
     if run_step("preprocessing.py") != 0:

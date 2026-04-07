@@ -64,11 +64,15 @@ LEARNING_RATE = 0.05
 DROP_COLS = [
     # Identifiers — no predictive signal
     "unique_id", "store_id", "store_name", "store_street", "store_zip",
+    "store_country", "product_image",
     "product_ean", "offer_ean", "product_description",
     # Directly leaks the target
     "final_stock", "sell_through_rate",
-    # Requires parsing — handled later by feature_engineering.py
-    "store_customer_flow_today",
+    # Raw strings replaced by engineered features in build_features.py
+    "store_customer_flow_today", "store_customer_flow_tomorrow",
+    "store_hours_today", "store_hours_tomorrow",
+    # Raw category paths replaced by category_level1/2_en/da
+    "product_category_en", "product_category_da",
 ]
 
 NUMERIC_COLS = [
@@ -76,11 +80,18 @@ NUMERIC_COLS = [
     "offer_original_price", "offer_new_price",
     "offer_discount", "offer_percent_discount",
     "initial_stock", "hours_on_clearance", "n_snapshots",
+    # Engineered in build_features.py
+    "flow_peak_value", "flow_peak_hour", "flow_avg",
+    "flow_at_offer_start", "flow_evening_share",
+    "store_open_hours", "hours_until_close",
+    "hours_until_offer_end", "offer_start_dayofweek", "offer_start_hour_cest",
 ]
 
 CATEGORICAL_COLS = [
     "store_brand", "store_city", "offer_stock_unit",
-    "product_category_en", "product_category_da",
+    # Engineered in build_features.py — replaces raw product_category_en/da
+    "category_level1_en", "category_level2_en",
+    "category_level1_da", "category_level2_da",
 ]
 
 DATETIME_COLS = [
@@ -90,4 +101,6 @@ DATETIME_COLS = [
 
 BOOLEAN_COLS = [
     "had_overnight_gap", "potential_relabelling",
+    # Engineered in build_features.py
+    "is_weight_based", "is_closed_tomorrow",
 ]

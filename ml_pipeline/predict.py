@@ -15,6 +15,7 @@ import time
 
 from store_sql import get_connection
 from build_dataset import parse_timestamps, compute_lifecycle_features
+from build_features import apply_all as apply_feature_engineering
 from preprocessing import drop_columns, encode_features
 from config import (
     MODELS_DIR, NUMERIC_COLS, OUTPUTS_DIR,
@@ -192,6 +193,9 @@ def main():
         # potential_relabelling — default to False for live offers
         # (can't detect until offer completes — handled in compute_labels in build_dataset.py)
         df["potential_relabelling"] = False
+
+        # Apply the same feature engineering used during training
+        df = apply_feature_engineering(df)
 
         display_cols = df[[
             "unique_id", "store_name", "store_brand", "store_city",
