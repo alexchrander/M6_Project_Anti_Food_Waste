@@ -33,3 +33,7 @@
 * Lav et shell script for predict.py magen til de andre + få sat automatisk cron kørsel op ligesom de andre to automatiske processer.
 * Skal vi bruge LLM i vores pipeline? 
 * Burde vi bruge wandb? For logging og visualisering af vores nl pipeline? 
+
+#### Notes Anders
+* Hvorfor har vi store lng og lat. med i numeric cols?
+* Arbejde med at indarbejde sådan løbende opdateringsfeatures i lifecycle aggregeringen
