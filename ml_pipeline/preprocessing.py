@@ -10,11 +10,10 @@ import joblib
 import pandas as pd
 from datetime import date
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.model_selection import train_test_split
 
 from config import (
     FEATURES_DIR, MODELS_DIR,
-    SELL_THRESHOLD, TEST_SIZE, RANDOM_STATE,
+    SELL_THRESHOLD,
     DROP_COLS, NUMERIC_COLS, CATEGORICAL_COLS, DATETIME_COLS, BOOLEAN_COLS,
 )
 
@@ -167,7 +166,12 @@ def main():
 
     df = load_latest_features()
 
-    # Create target and drop unwanted columns
+    # Sort by last_seen ascending so oldest offers come first — this is the
+    # temporal anchor that determines when an offer's outcome becomes known.
+    # reset_index ensures .iloc slicing is deterministic.
+    df = df.sort_values("last_seen").reset_index(drop=True)
+
+    # Derive y and X from the same sorted df to guarantee row alignment.
     y = create_target(df)
     X = drop_columns(df)
     X, encoders = encode_features(X)
@@ -176,10 +180,16 @@ def main():
     log.info(f"Feature matrix shape after encoding: {X.shape}")
     log.info(f"Features: {list(X.columns)}")
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
-    )
-    log.info(f"Train size: {len(X_train)}, Test size: {len(X_test)}")
+    # Time-based split: oldest 80% → train, newest 20% → test.
+    # No random state needed — split is fully deterministic via sort order.
+    cutoff  = int(len(X) * 0.8)
+    X_train = X.iloc[:cutoff].copy()
+    X_test  = X.iloc[cutoff:].copy()
+    y_train = y.iloc[:cutoff].copy()
+    y_test  = y.iloc[cutoff:].copy()
+
+    log.info(f"Time-based split — Train: {len(X_train)}, Test: {len(X_test)}")
+    log.info(f"Train positive rate: {y_train.mean():.1%}, Test positive rate: {y_test.mean():.1%}")
 
     X_train, X_test = scale_features(X_train, X_test)
 
