@@ -24,6 +24,8 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+ENCODERS_PATH = MODELS_DIR / "label_encoders.joblib"
+
 # ── Data loading ───────────────────────────────────────────────────────────────
 
 def load_latest_features() -> pd.DataFrame:
@@ -72,15 +74,25 @@ def create_target(df: pd.DataFrame) -> pd.Series:
     return y
 
 
-def encode_features(X: pd.DataFrame) -> pd.DataFrame:
+def encode_features(
+    X: pd.DataFrame,
+    encoders: dict | None = None,
+) -> tuple[pd.DataFrame, dict]:
     """
     Encode all non-numeric feature types.
     Used by both preprocessing.py (training) and predict.py (inference).
     - Datetime → hour + dayofweek
-    - Categorical → label encoded integer
+    - Categorical → label encoded integer (fit on training, applied at inference)
     - Boolean → integer (0/1)
+
+    If encoders=None (training): fits new LabelEncoders and returns them.
+    If encoders=dict (inference): applies the pre-fitted encoders, mapping
+    unseen categories to "Unknown" before encoding.
+
+    Returns (X_encoded, encoders_dict) so callers can save them after training.
     """
     X = X.copy()
+    fitted_encoders = encoders or {}
 
     # ── Datetime: extract hour + day of week, drop originals ──────────────────
     for col in DATETIME_COLS:
@@ -92,17 +104,44 @@ def encode_features(X: pd.DataFrame) -> pd.DataFrame:
 
     # ── Categorical: fill nulls, label encode ─────────────────────────────────
     for col in CATEGORICAL_COLS:
-        if col in X.columns:
-            X[col] = X[col].fillna("Unknown")
-            le     = LabelEncoder()
-            X[col] = le.fit_transform(X[col].astype(str))
+        if col not in X.columns:
+            continue
+        X[col] = X[col].fillna("Unknown").astype(str)
+
+        if col in fitted_encoders:
+            # Inference: map unseen categories to "Unknown", then encode
+            le    = fitted_encoders[col]
+            known = set(le.classes_)
+            X[col] = X[col].apply(lambda v: v if v in known else "Unknown")
+            X[col] = le.transform(X[col])
+        else:
+            # Training: always include "Unknown" so inference can use it
+            all_values = sorted(set(X[col].unique()) | {"Unknown"})
+            le = LabelEncoder()
+            le.fit(all_values)
+            X[col] = le.transform(X[col])
+            fitted_encoders[col] = le
 
     # ── Boolean: convert to int (0/1) ─────────────────────────────────────────
     for col in BOOLEAN_COLS:
         if col in X.columns:
             X[col] = X[col].astype(int)
 
-    return X
+    return X, fitted_encoders
+
+
+def save_encoders(encoders: dict) -> None:
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    joblib.dump(encoders, ENCODERS_PATH)
+    log.info(f"Saved {len(encoders)} label encoders to {ENCODERS_PATH}")
+
+
+def load_encoders() -> dict:
+    if not ENCODERS_PATH.exists():
+        raise FileNotFoundError(
+            f"label_encoders.joblib not found in {MODELS_DIR} — run preprocessing.py first"
+        )
+    return joblib.load(ENCODERS_PATH)
 
 
 def scale_features(X_train: pd.DataFrame, X_test: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -131,7 +170,8 @@ def main():
     # Create target and drop unwanted columns
     y = create_target(df)
     X = drop_columns(df)
-    X = encode_features(X)
+    X, encoders = encode_features(X)
+    save_encoders(encoders)
 
     log.info(f"Feature matrix shape after encoding: {X.shape}")
     log.info(f"Features: {list(X.columns)}")

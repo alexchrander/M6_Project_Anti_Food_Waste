@@ -16,7 +16,7 @@ import time
 from store_sql import get_connection
 from build_dataset import parse_timestamps, compute_lifecycle_features
 from build_features import apply_all as apply_feature_engineering
-from preprocessing import drop_columns, encode_features
+from preprocessing import drop_columns, encode_features, load_encoders
 from config import (
     MODELS_DIR, NUMERIC_COLS, OUTPUTS_DIR,
     SELL_THRESHOLD, PR_AUC_THRESHOLD, PREDICTION_THRESHOLD,
@@ -206,7 +206,8 @@ def main():
         ]].copy()
 
         X = drop_columns(df)
-        X = encode_features(X)
+        encoders = load_encoders()
+        X, _ = encode_features(X, encoders=encoders)
 
         non_numeric = X.select_dtypes(exclude=["number"]).columns.tolist()
         if non_numeric:
