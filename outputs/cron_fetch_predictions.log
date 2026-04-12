@@ -1,0 +1,47 @@
+=== Starting Fetching & Predictions Pipeline at Sun Apr 12 22:00:01 CEST 2026 ===
+--- Fetch Pipeline starting at Sun Apr 12 22:00:01 CEST 2026 ---
+============================================================
+Anti Food Waste — Fetch Pipeline
+============================================================
+
+[1/3] Fetching offers from Salling API for zip codes: ['9000']...
+Fetched 367 clearance offer(s)
+
+[2/3] Adding unique_id to all rows...
+
+[3/3] Storing data in MySQL...
+  [history]  Inserted 367 new row(s)
+  [current]  Replaced with 367 row(s)
+  [run_log]  Row appended to outputs/fetch_log.csv
+
+============================================================
+Fetch pipeline complete — 2026-04-12 22:00:04
+============================================================
+--- Fetch Pipeline finished at Sun Apr 12 22:00:04 CEST 2026 ---
+--- Predictions Pipeline starting at Sun Apr 12 22:00:04 CEST 2026 ---
+2026-04-12 22:00:08,786 — INFO — Starting predict.py
+2026-04-12 22:00:08,893 — INFO — package: mysql.connector.plugins
+2026-04-12 22:00:08,893 — INFO — plugin_name: caching_sha2_password
+2026-04-12 22:00:08,893 — INFO — AUTHENTICATION_PLUGIN_CLASS: MySQLCachingSHA2PasswordAuthPlugin
+/work/M6_Project_Anti_Food_Waste/predict_pipeline/predict.py:44: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  current = pd.read_sql("SELECT * FROM current", conn)
+/work/M6_Project_Anti_Food_Waste/predict_pipeline/predict.py:45: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  history = pd.read_sql("SELECT * FROM history", conn)
+2026-04-12 22:00:34,554 — INFO — Loaded 367 current offers and 358383 history rows
+2026-04-12 22:00:35,255 — INFO — category_level1_en: 5 unique values (16 Unknown = 4.4%)
+2026-04-12 22:00:35,256 — INFO — is_weight_based: 12 kg-based (3.3%)
+2026-04-12 22:00:35,263 — INFO — Engineered customer flow features (flow_peak_value, flow_peak_hour, flow_avg, flow_at_offer_start, flow_evening_share)
+2026-04-12 22:00:35,269 — INFO — Engineered store hours features (store_open_hours, hours_until_close, is_closed_tomorrow)
+2026-04-12 22:00:35,277 — INFO — Engineered time features (hours_until_offer_end, offer_start_dayofweek, offer_start_hour_cest)
+2026-04-12 22:00:37,176 — INFO — Loaded champion model from /work/M6_Project_Anti_Food_Waste/models/model.joblib
+2026-04-12 22:00:38,275 — INFO — Using prediction threshold: 0.5
+2026-04-12 22:00:39,693 — INFO — Saved predictions parquet to /work/M6_Project_Anti_Food_Waste/data/predictions/scored_20260412_2200.parquet
+2026-04-12 22:00:39,693 — INFO — Predicted 367 offers
+2026-04-12 22:00:39,693 — INFO — Will sell:  69 (18.8%)
+2026-04-12 22:00:39,694 — INFO — Won't sell: 298 (81.2%)
+2026-04-12 22:00:39,694 — INFO — Avg sell probability: 0.2079
+2026-04-12 22:00:40,211 — INFO — Wrote 367 rows to MySQL app table
+2026-04-12 22:00:40,213 — INFO — Prediction run logged to /work/M6_Project_Anti_Food_Waste/outputs/predictions_log.csv
+2026-04-12 22:00:40,213 — INFO — predict.py complete
+--- Predictions Pipeline finished at Sun Apr 12 22:00:41 CEST 2026 ---
+=== Fetching & Predictions Pipeline finished at Sun Apr 12 22:00:41 CEST 2026 ===

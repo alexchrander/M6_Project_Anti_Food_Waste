@@ -25,3 +25,4 @@ timestamp,duration_seconds,sell_threshold,pr_auc_threshold,prediction_threshold,
 2026-04-12 21:32:05,44.26,0.8,0.5,0.5,377,69,0.183,0.2038,lightgbm,2026-04-12,success,
 2026-04-12 21:47:05,37.84,0.8,0.5,0.5,,,,,,,failed,1054 (42S22): Unknown column 'fetched_at' in 'field list'
 2026-04-12 21:49:43,36.8,0.8,0.5,0.5,367,67,0.1826,0.2043,lightgbm,2026-04-12,success,
+2026-04-12 22:00:08,31.42,0.8,0.5,0.5,367,69,0.188,0.2079,lightgbm,2026-04-12,success,
