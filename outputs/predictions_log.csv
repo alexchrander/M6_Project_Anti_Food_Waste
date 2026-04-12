@@ -8,3 +8,5 @@ timestamp,duration_seconds,sell_threshold,pr_auc_threshold,prediction_threshold,
 2026-04-12 16:38:07,34.35,0.8,0.5,0.5,,,,,,,failed,1054 (42S22): Unknown column 'store_hours_today' in 'field list'
 2026-04-12 16:40:30,30.57,0.8,0.5,0.5,427,113,0.2646,0.251,lightgbm,2026-04-12,success,
 2026-04-12 16:41:37,30.73,0.8,0.5,0.5,427,113,0.2646,0.251,lightgbm,2026-04-12,success,
+2026-04-12 17:25:12,26.41,0.8,0.5,0.5,436,113,0.2592,0.2518,lightgbm,2026-04-12,success,
+2026-04-12 18:17:04,31.34,0.8,0.5,0.5,436,117,0.2683,0.2506,lightgbm,2026-04-12,success,

@@ -52,3 +52,9 @@
 * Vise antal/vægt på hvert produkt? Hvor mange er der tilbage?
 * Sell_through_rate burde måske bruge last_seen i stedet for final_stock, så det kan bruges til prediction også?
 * Vi burde nok lave build_dataset logikken direkte i vores fetch e.l.
+
+#### Vi mangler:
+* Predictions shell file, cron job og cron log
+* Peter retter småting i appen
+* Skrive rapport
+* Lave docker ting

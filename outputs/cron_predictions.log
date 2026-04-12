@@ -1,0 +1,26 @@
+=== Starting Predictions Pipeline at Sun Apr 12 18:17:01 CEST 2026 ===
+2026-04-12 18:17:04,279 — INFO — Starting predict.py
+2026-04-12 18:17:04,355 — INFO — package: mysql.connector.plugins
+2026-04-12 18:17:04,355 — INFO — plugin_name: caching_sha2_password
+2026-04-12 18:17:04,355 — INFO — AUTHENTICATION_PLUGIN_CLASS: MySQLCachingSHA2PasswordAuthPlugin
+/work/M6_Project_Anti_Food_Waste/predict_pipeline/predict.py:44: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  current = pd.read_sql("SELECT * FROM current", conn)
+/work/M6_Project_Anti_Food_Waste/predict_pipeline/predict.py:45: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  history = pd.read_sql("SELECT * FROM history", conn)
+2026-04-12 18:17:30,445 — INFO — Loaded 436 current offers and 351936 history rows
+2026-04-12 18:17:31,126 — INFO — category_level1_en: 6 unique values (18 Unknown = 4.1%)
+2026-04-12 18:17:31,127 — INFO — is_weight_based: 14 kg-based (3.2%)
+2026-04-12 18:17:31,134 — INFO — Engineered customer flow features (flow_peak_value, flow_peak_hour, flow_avg, flow_at_offer_start, flow_evening_share)
+2026-04-12 18:17:31,140 — INFO — Engineered store hours features (store_open_hours, hours_until_close, is_closed_tomorrow)
+2026-04-12 18:17:31,145 — INFO — Engineered time features (hours_until_offer_end, offer_start_dayofweek, offer_start_hour_cest)
+2026-04-12 18:17:32,575 — INFO — Loaded champion model from /work/M6_Project_Anti_Food_Waste/models/model.joblib
+2026-04-12 18:17:34,974 — INFO — Using prediction threshold: 0.5
+2026-04-12 18:17:35,096 — INFO — Saved predictions parquet to /work/M6_Project_Anti_Food_Waste/data/predictions/scored_20260412_1817.parquet
+2026-04-12 18:17:35,096 — INFO — Predicted 436 offers
+2026-04-12 18:17:35,097 — INFO — Will sell:  117 (26.8%)
+2026-04-12 18:17:35,097 — INFO — Won't sell: 319 (73.2%)
+2026-04-12 18:17:35,097 — INFO — Avg sell probability: 0.2506
+2026-04-12 18:17:35,617 — INFO — Wrote 436 rows to MySQL app table
+2026-04-12 18:17:35,619 — INFO — Prediction run logged to /work/M6_Project_Anti_Food_Waste/outputs/predictions_log.csv
+2026-04-12 18:17:35,619 — INFO — predict.py complete
+=== Predictions Pipeline finished ===
