@@ -26,7 +26,7 @@ st.set_page_config(
 # ── Cached data loading ────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=900)
-def load_predictions() -> tuple[pd.DataFrame, str, str, str]:
+def load_predictions() -> tuple[pd.DataFrame, str, str, str, str]:
     """Load pre-scored predictions from the MySQL app table. Cached for 15 minutes."""
     log.info("Cache miss — loading from MySQL app table")
     conn = get_connection()
@@ -35,17 +35,18 @@ def load_predictions() -> tuple[pd.DataFrame, str, str, str]:
     log.info(f"Loaded {len(df)} scored offers from app table")
 
     if df.empty:
-        return pd.DataFrame(), "", "", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return pd.DataFrame(), "", "", "", ""
 
-    model_type = df["champion_model"].iloc[0]    if "champion_model"    in df.columns else "unknown"
-    trained_on = df["champion_trained_on"].iloc[0] if "champion_trained_on" in df.columns else "unknown"
-    fetched_at = df["predicted_at"].iloc[0]      if "predicted_at"      in df.columns else "unknown"
+    model_type   = df["champion_model"].iloc[0]      if "champion_model"    in df.columns else "unknown"
+    trained_on   = df["champion_trained_on"].iloc[0]  if "champion_trained_on" in df.columns else "unknown"
+    fetched_at   = df["fetched_at"].iloc[0]           if "fetched_at"        in df.columns else "unknown"
+    predicted_at = df["predicted_at"].iloc[0]         if "predicted_at"      in df.columns else "unknown"
 
     df["store_lat"] = pd.to_numeric(df["store_lat"], errors="coerce")
     df["store_lng"] = pd.to_numeric(df["store_lng"], errors="coerce")
     df = df.sort_values("sell_probability", ascending=False).reset_index(drop=True)
 
-    return df, model_type, trained_on, fetched_at
+    return df, model_type, trained_on, fetched_at, predicted_at
 
 
 # ── UI helpers ─────────────────────────────────────────────────────────────────
@@ -149,7 +150,7 @@ def main() -> None:
     st.markdown("*Live clearance offers ranked by sell-through probability*")
 
     try:
-        results, model_type, trained_on, fetched_at = load_predictions()
+        results, model_type, trained_on, fetched_at, predicted_at = load_predictions()
     except Exception as exc:
         if "sql-net" in str(exc) or "Can't connect" in str(exc) or "Connection" in str(exc):
             st.error("Cannot connect to database — check UCloud sql-net connection")
@@ -159,10 +160,12 @@ def main() -> None:
             st.error(f"Error loading predictions: {exc}")
         st.stop()
 
-    # Header row: last updated + refresh
+    # Header row: workflow timestamps + refresh
     col_ts, col_btn = st.columns([4, 1])
     with col_ts:
-        st.caption(f"Last updated: {fetched_at}  ·  Cache refreshes every 15 min")
+        st.caption(
+            f"Fetched: {fetched_at}  ·  Predicted: {predicted_at}  ·  Cache refreshes every 15 min"
+        )
     with col_btn:
         if st.button("Refresh now"):
             st.cache_data.clear()

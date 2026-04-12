@@ -205,10 +205,10 @@ def store_current(conn: connection.MySQLConnection, rows: list[dict], fetched_at
 
 def init_app_table(conn: connection.MySQLConnection) -> None:
     """
-    Create the app table if it doesn't exist.
+    Create the app table if it doesn't exist, then add any missing columns.
     Schema is derived from APP_COLS in config.py — columns are typed as
     FLOAT for numeric, DATETIME for datetime, TINYINT for boolean, TEXT for all others.
-    Called once at startup or when the table needs to be recreated.
+    The ALTER TABLE step ensures existing tables stay in sync when config.py changes.
     """
     from config import COLUMNS, APP_COLS
 
@@ -224,24 +224,40 @@ def init_app_table(conn: connection.MySQLConnection) -> None:
 
     # Build column definitions from APP_COLS + model output columns
     model_output_cols = [
-        "will_sell        TINYINT(1)",
-        "sell_probability FLOAT",
-        "predicted_at     DATETIME",
+        ("will_sell",        "TINYINT(1)"),
+        ("sell_probability", "FLOAT"),
+        ("predicted_at",     "DATETIME"),
     ]
 
     app_col_defs = []
     for col in APP_COLS:
         col_type = TYPE_MAP.get(COLUMNS[col]["type"], "TEXT")
-        app_col_defs.append(f"{col} {col_type}")
+        app_col_defs.append((col, col_type))
 
-    all_col_defs = ",\n            ".join(app_col_defs + model_output_cols)
+    all_cols = app_col_defs + model_output_cols
+
+    col_defs_sql = ",\n            ".join(f"{col} {typ}" for col, typ in all_cols)
 
     cursor = conn.cursor()
+
+    # Create table if it doesn't exist yet
     cursor.execute(f"""
         CREATE TABLE IF NOT EXISTS app (
-            {all_col_defs}
+            {col_defs_sql}
         )
     """)
+
+    # Add any columns missing from an existing table (e.g. after config.py changes)
+    cursor.execute("""
+        SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'app'
+    """)
+    existing_cols = {row[0] for row in cursor.fetchall()}
+
+    for col, typ in all_cols:
+        if col not in existing_cols:
+            cursor.execute(f"ALTER TABLE app ADD COLUMN {col} {typ}")
+
     conn.commit()
     cursor.close()
 

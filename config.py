@@ -77,6 +77,7 @@ COLUMNS = {
 
     # ── API ───────────────────────────────────────────────────────────────────
     "unique_id":                    {"type": "passthrough",  "model": False, "app": True,  "predictions": True},
+    "fetched_at":                   {"type": "datetime",     "model": False, "app": True,  "predictions": True},
     "product_ean":                  {"type": "categorical", "model": True,  "app": True,  "predictions": True},
     "product_description":          {"type": "passthrough",  "model": False, "app": True,  "predictions": True},
     "product_image":                {"type": "passthrough",  "model": False, "app": True,  "predictions": True},

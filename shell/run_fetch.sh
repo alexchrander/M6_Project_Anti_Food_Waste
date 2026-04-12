@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "=== Starting fetch pipeline at $(date) ==="
+echo "=== Starting Fetch Pipeline at $(date) ==="
 
 # 1. Navigate to your project folder
 cd /work/M6_Project_Anti_Food_Waste

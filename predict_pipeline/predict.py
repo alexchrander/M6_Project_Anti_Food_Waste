@@ -205,6 +205,9 @@ def main():
 
         df = compute_lifecycle_features(active_history)
 
+        # Bring fetched_at from current into df (df is built from history, not current)
+        df = df.merge(current[["unique_id", "fetched_at"]], on="unique_id", how="left")
+
         # potential_relabelling — default to False for live offers
         # (can't detect until offer completes — handled in compute_labels in build_dataset.py)
         df["potential_relabelling"] = False
