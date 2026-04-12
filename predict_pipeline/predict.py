@@ -1,24 +1,26 @@
 import sys
 from pathlib import Path
 
-# Add project root to path so config.py is found
-sys.path.append(str(Path(__file__).parent.parent))
-sys.path.append(str(Path(__file__).parent.parent / "fetch_pipeline"))
+# predict.py lives in predict_pipeline/ — project root is one level up.
+# All three source directories must be on the path explicitly.
+sys.path.append(str(Path(__file__).parent.parent))                    # project root → config.py
+sys.path.append(str(Path(__file__).parent.parent / "fetch_pipeline")) # store_sql.py
+sys.path.append(str(Path(__file__).parent.parent / "ml_pipeline"))    # build_dataset, build_features, preprocessing
 
 import csv
 import json
 import logging
-import joblib
 import pandas as pd
 from datetime import datetime
 import time
 
-from store_sql import get_connection
+from store_sql import get_connection, init_app_table, store_app_table
 from build_dataset import parse_timestamps, compute_lifecycle_features
 from build_features import apply_all as apply_feature_engineering
-from preprocessing import drop_columns, encode_features, load_encoders
+from preprocessing import drop_columns, preprocess_for_inference
 from config import (
-    MODELS_DIR, NUMERIC_COLS, OUTPUTS_DIR,
+    MODELS_DIR, OUTPUTS_DIR, PREDICTIONS_DIR,
+    APP_COLS, PREDICTIONS_PARQUET_COLS,
     SELL_THRESHOLD, PR_AUC_THRESHOLD, PREDICTION_THRESHOLD,
 )
 
@@ -28,7 +30,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-PREDICT_LOG = OUTPUTS_DIR / "predict_log.csv"
+PREDICT_LOG = OUTPUTS_DIR / "predictions_log.csv"
 
 # ── Data loading ───────────────────────────────────────────────────────────────
 
@@ -45,26 +47,6 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     log.info(f"Loaded {len(current)} current offers and {len(history)} history rows")
     return current, history
 
-# ── Scaling ────────────────────────────────────────────────────────────────────
-
-def scale(X: pd.DataFrame) -> pd.DataFrame:
-    """
-    Apply the saved scaler to numeric columns.
-    Uses the same scaler fitted during preprocessing.py — do NOT refit.
-    """
-    scaler_path = MODELS_DIR / "scaler.joblib"
-    if not scaler_path.exists():
-        raise FileNotFoundError(
-            f"scaler.joblib not found in {MODELS_DIR} — run preprocessing.py first"
-        )
-
-    scaler        = joblib.load(scaler_path)
-    cols_to_scale = [c for c in NUMERIC_COLS if c in X.columns]
-    if cols_to_scale:
-        X[cols_to_scale] = scaler.transform(X[cols_to_scale])
-
-    return X
-
 # ── Prediction ─────────────────────────────────────────────────────────────────
 
 def predict(X: pd.DataFrame) -> tuple[list[int], list[float], str, str]:
@@ -73,6 +55,8 @@ def predict(X: pd.DataFrame) -> tuple[list[int], list[float], str, str]:
     Uses PREDICTION_THRESHOLD from config for binary classification.
     Returns binary predictions, raw probabilities, model type and trained_on date.
     """
+    import joblib
+
     model_path = MODELS_DIR / "model.joblib"
     if not model_path.exists():
         raise FileNotFoundError(
@@ -105,20 +89,51 @@ def predict(X: pd.DataFrame) -> tuple[list[int], list[float], str, str]:
 
 # ── Output ─────────────────────────────────────────────────────────────────────
 
-def build_results(display_cols: pd.DataFrame, y_pred: list, y_prob: list) -> pd.DataFrame:
+def build_app_table(df: pd.DataFrame, y_pred: list, y_prob: list, predicted_at: str) -> pd.DataFrame:
     """
-    Join predictions back to display columns to produce the final results table.
-    This is what will eventually be written to the predictions MySQL table.
+    Build the app table for MySQL (app.py serving layer).
+    Columns are defined by APP_COLS in config.py.
     """
-    results                     = display_cols.copy()
+    available = [c for c in APP_COLS if c in df.columns]
+    missing   = [c for c in APP_COLS if c not in df.columns]
+    if missing:
+        log.warning(f"APP_COLS — missing columns, skipping: {missing}")
+
+    results                     = df[available].copy()
     results["will_sell"]        = y_pred
     results["sell_probability"] = [round(p, 4) for p in y_prob]
-    results["predicted_at"]     = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    results["predicted_at"]     = predicted_at
 
     # Sort by sell probability descending — most likely to sell first
     results = results.sort_values("sell_probability", ascending=False).reset_index(drop=True)
-
     return results
+
+
+def build_predictions_parquet(df: pd.DataFrame, y_pred: list, y_prob: list, predicted_at: str) -> pd.DataFrame:
+    """
+    Build the full predictions snapshot for parquet (audit trail + debugging).
+    Columns are defined by PREDICTIONS_PARQUET_COLS in config.py.
+    """
+    available = [c for c in PREDICTIONS_PARQUET_COLS if c in df.columns]
+    missing   = [c for c in PREDICTIONS_PARQUET_COLS if c not in df.columns]
+    if missing:
+        log.warning(f"PREDICTIONS_PARQUET_COLS — missing columns, skipping: {missing}")
+
+    snapshot                     = df[available].copy()
+    snapshot["will_sell"]        = y_pred
+    snapshot["sell_probability"] = [round(p, 4) for p in y_prob]
+    snapshot["predicted_at"]     = predicted_at
+    return snapshot
+
+
+def save_predictions_parquet(snapshot: pd.DataFrame, predicted_at: str) -> Path:
+    """Save predictions snapshot to data/predictions/scored_YYYYMMDD_HHMM.parquet."""
+    PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
+    ts          = predicted_at.replace("-", "").replace(":", "").replace(" ", "_")[:13]
+    output_path = PREDICTIONS_DIR / f"scored_{ts}.parquet"
+    snapshot.to_parquet(output_path, index=False)
+    log.info(f"Saved predictions parquet to {output_path}")
+    return output_path
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 
@@ -158,8 +173,8 @@ def log_predict_run(run: dict) -> None:
 
 def main():
     log.info("Starting predict.py")
-    start_time = time.time()
-    timestamp  = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    start_time   = time.time()
+    predicted_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     try:
         current, history = load_data()
@@ -167,7 +182,7 @@ def main():
         if current.empty:
             log.warning("No current offers found — exiting")
             log_predict_run({
-                "timestamp":            timestamp,
+                "timestamp":            predicted_at,
                 "duration_seconds":     round(time.time() - start_time, 2),
                 "sell_threshold":       SELL_THRESHOLD,
                 "pr_auc_threshold":     PR_AUC_THRESHOLD,
@@ -188,7 +203,7 @@ def main():
         active_ids     = set(current["unique_id"])
         active_history = history[history["unique_id"].isin(active_ids)].copy()
 
-        df, _ = compute_lifecycle_features(active_history)
+        df = compute_lifecycle_features(active_history)
 
         # potential_relabelling — default to False for live offers
         # (can't detect until offer completes — handled in compute_labels in build_dataset.py)
@@ -197,56 +212,42 @@ def main():
         # Apply the same feature engineering used during training
         df = apply_feature_engineering(df)
 
-        display_cols = df[[
-            "unique_id", "store_name", "store_brand", "store_city",
-            "store_lat", "store_lng",
-            "product_description", "product_category_en",
-            "offer_new_price", "offer_original_price", "offer_percent_discount",
-            "offer_stock_unit", "offer_end_time",
-        ]].copy()
-
+        # Preprocess — encode and scale using fitted artifacts from preprocessing.py
         X = drop_columns(df)
-        encoders = load_encoders()
-        X, _ = encode_features(X, encoders=encoders)
-
-        non_numeric = X.select_dtypes(exclude=["number"]).columns.tolist()
-        if non_numeric:
-            log.warning(f"Dropping non-numeric columns: {non_numeric}")
-            X = X.drop(columns=non_numeric)
-
-        X = scale(X)
+        X = preprocess_for_inference(X)
 
         y_pred, y_prob, model_type, trained_on = predict(X)
 
-        results = build_results(display_cols, y_pred, y_prob)
+        # ── Build outputs ──────────────────────────────────────────────────────
+        app_table = build_app_table(df, y_pred, y_prob, predicted_at)
+        snapshot  = build_predictions_parquet(df, y_pred, y_prob, predicted_at)
 
-        n_will_sell   = int(results["will_sell"].sum())
-        pct_will_sell = round(results["will_sell"].mean(), 4)
-        avg_sell_prob = round(results["sell_probability"].mean(), 4)
+        # ── Save predictions parquet ───────────────────────────────────────────
+        save_predictions_parquet(snapshot, predicted_at)
 
-        log.info(f"Predicted {len(results)} offers")
+        n_will_sell   = int(app_table["will_sell"].sum())
+        pct_will_sell = round(app_table["will_sell"].mean(), 4)
+        avg_sell_prob = round(app_table["sell_probability"].mean(), 4)
+
+        log.info(f"Predicted {len(app_table)} offers")
         log.info(f"Will sell:  {n_will_sell} ({pct_will_sell:.1%})")
-        log.info(f"Won't sell: {len(results) - n_will_sell} ({1 - pct_will_sell:.1%})")
+        log.info(f"Won't sell: {len(app_table) - n_will_sell} ({1 - pct_will_sell:.1%})")
         log.info(f"Avg sell probability: {avg_sell_prob:.4f}")
 
-        output_path = Path(__file__).parent.parent / "test_data" / "predictions.csv"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        results.to_csv(output_path, index=False)
-        log.info(f"Saved predictions to {output_path}")
-
-        # ══════════════════════════════════════════════════════════════════════
-        # TODO: Write results to MySQL predictions table once schema is agreed
-        # Something like:
-        #   store_predictions(conn, results)
-        # ══════════════════════════════════════════════════════════════════════
+        # ── Write to MySQL app table ───────────────────────────────────────────
+        conn = get_connection()
+        init_app_table(conn)
+        store_app_table(conn, app_table)
+        conn.close()
+        log.info(f"Wrote {len(app_table)} rows to MySQL app table")
 
         log_predict_run({
-            "timestamp":            timestamp,
+            "timestamp":            predicted_at,
             "duration_seconds":     round(time.time() - start_time, 2),
             "sell_threshold":       SELL_THRESHOLD,
             "pr_auc_threshold":     PR_AUC_THRESHOLD,
             "prediction_threshold": PREDICTION_THRESHOLD,
-            "n_offers_scored":      len(results),
+            "n_offers_scored":      len(app_table),
             "n_will_sell":          n_will_sell,
             "pct_will_sell":        pct_will_sell,
             "avg_sell_probability": avg_sell_prob,
@@ -261,7 +262,7 @@ def main():
     except Exception as e:
         log.error(f"predict.py failed: {e}")
         log_predict_run({
-            "timestamp":            timestamp,
+            "timestamp":            predicted_at,
             "duration_seconds":     round(time.time() - start_time, 2),
             "sell_threshold":       SELL_THRESHOLD,
             "pr_auc_threshold":     PR_AUC_THRESHOLD,

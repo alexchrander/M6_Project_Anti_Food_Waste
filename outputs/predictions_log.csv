@@ -1,0 +1,10 @@
+timestamp,duration_seconds,sell_threshold,pr_auc_threshold,prediction_threshold,n_offers_scored,n_will_sell,pct_will_sell,avg_sell_probability,champion_model,champion_trained_on,status,failed_reason
+2026-04-12 01:30:48,21.18,0.8,0.5,0.5,,,,,,,failed,encoder.joblib not found in /work/M6_Project_Anti_Food_Waste/models — run preprocessing.py first
+2026-04-12 01:37:22,29.68,0.8,0.5,0.5,,,,,,,failed,1146 (42S02): Table 'food_waste.app' doesn't exist
+2026-04-12 01:41:36,55.99,0.8,0.5,0.5,,,,,,,failed,1146 (42S02): Table 'food_waste.app' doesn't exist
+2026-04-12 01:47:18,36.31,0.8,0.5,0.5,400,95,0.2375,0.2371,lightgbm,2026-04-12,success,
+2026-04-12 02:08:02,27.9,0.8,0.5,0.5,400,98,0.245,0.2313,lightgbm,2026-04-12,success,
+2026-04-12 02:27:23,25.81,0.8,0.5,0.5,400,98,0.245,0.2313,lightgbm,2026-04-12,success,
+2026-04-12 16:38:07,34.35,0.8,0.5,0.5,,,,,,,failed,1054 (42S22): Unknown column 'store_hours_today' in 'field list'
+2026-04-12 16:40:30,30.57,0.8,0.5,0.5,427,113,0.2646,0.251,lightgbm,2026-04-12,success,
+2026-04-12 16:41:37,30.73,0.8,0.5,0.5,427,113,0.2646,0.251,lightgbm,2026-04-12,success,

@@ -31,9 +31,24 @@
 * App.py laves i henhold til predict.py og predict tabellen fra MySQL. Alexander skal nok hjælpe med at give det indledende kode, så det henter rigtigt fra databasen.
 * Begynd det indlende arbejde med vores projektskrivning. Start et overleaf projekt og få dokumenteret processer.
 * Lav et shell script for predict.py magen til de andre + få sat automatisk cron kørsel op ligesom de andre to automatiske processer.
-* Skal vi bruge LLM i vores pipeline? 
-* Burde vi bruge wandb? For logging og visualisering af vores nl pipeline? 
+* Burde vi bruge wandb? For logging og visualisering af vores ml pipeline? 
 
 #### Notes Anders
 * Hvorfor har vi store lng og lat. med i numeric cols?
+    * Vi tager store_id med som en katogorisk feature, og vi flytter store lng og lat. til kategorisk feature.
+    * Kan man have nogle features til at flyde igennem ml- og prediction_pipeline uden at de nødvendigvis skal hjælpe med at træne ml modellen? Fordi så kan man bruge disse features som app features e.l., i stedet for at bruge dem til at træne modellen.
 * Arbejde med at indarbejde sådan løbende opdateringsfeatures i lifecycle aggregeringen
+
+#### Plan for nu
+* Encoder.joblib? Laver vi encoder rigtigt? 
+* Vi burde have et tidsbaseret train/test split i stedet for et random_state = 42.
+* Er der data leakage ved at vores champion model bliver testet på et nyt test split? Altså, har den set mange af de tidligere offers i dens træningsfase dengang, som den så bliver testet på nu?
+* Predict.py. Få scriptet til at virke i det directory den ligger i nu. Dertil, få besluttet hvilke endelige features vi sender til et prediction table i SQL. Er det alle features fetched fra API'en + alt det vi har feature engineered? 
+* App.py. Få et app script til at virke. Indtil vi har fået et prediction table i SQL, kan man bruge /M6_Project_Anti_Food_Waste/test_data/predictions.csv
+
+
+#### Alex noter
+* Måske en sort by funktion i appen? Så man kan sortere på produkterne.
+* Vise antal/vægt på hvert produkt? Hvor mange er der tilbage?
+* Sell_through_rate burde måske bruge last_seen i stedet for final_stock, så det kan bruges til prediction også?
+* Vi burde nok lave build_dataset logikken direkte i vores fetch e.l.

@@ -45,6 +45,7 @@ def load_train_split() -> tuple[pd.DataFrame, pd.Series, str]:
 def train_baseline(X_train, y_train) -> LogisticRegression:
     """Train a simple Logistic Regression as our baseline model."""
     model = LogisticRegression(
+        solver="saga",
         max_iter=MAX_ITER,
         class_weight="balanced",  # handles class imbalance
         random_state=RANDOM_STATE,

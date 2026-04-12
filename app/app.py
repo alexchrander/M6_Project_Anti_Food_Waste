@@ -1,34 +1,18 @@
 import sys
 from pathlib import Path
 
-# Add project root, fetch_pipeline, and ml_pipeline to path
+# Add project root and fetch_pipeline to path
 sys.path.append(str(Path(__file__).parent.parent))
 sys.path.append(str(Path(__file__).parent.parent / "fetch_pipeline"))
-sys.path.append(str(Path(__file__).parent.parent / "ml_pipeline"))
 
-import json
 import logging
-import joblib
 import pandas as pd
 import pydeck as pdk
 import streamlit as st
 from datetime import datetime
 
-# Try to import the full ML pipeline. Falls back to CSV mode when mysql-connector
-# is not installed (e.g. local dev without the UCloud sql-net connection).
-try:
-    from store_sql import get_connection
-    from build_dataset import parse_timestamps, compute_lifecycle_features
-    from build_features import apply_all as apply_feature_engineering
-    from preprocessing import drop_columns, encode_features, load_encoders
-    from config import MODELS_DIR, NUMERIC_COLS, PREDICTION_THRESHOLD
-    _PIPELINE_AVAILABLE = True
-except ModuleNotFoundError:
-    _PIPELINE_AVAILABLE = False
-    PREDICTION_THRESHOLD = 0.5  # fallback — matches config.py default
-
-# Fallback CSV written by predict.py
-_CSV_PATH = Path(__file__).parent.parent / "test_data" / "predictions.csv"
+from store_sql import get_connection
+from config import PREDICTION_THRESHOLD
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s — %(levelname)s — %(message)s")
 log = logging.getLogger(__name__)
@@ -39,124 +23,29 @@ st.set_page_config(
     page_icon="🛒",
 )
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
-
-def _scale(X: pd.DataFrame) -> pd.DataFrame:
-    scaler_path = MODELS_DIR / "scaler.joblib"
-    if not scaler_path.exists():
-        raise FileNotFoundError(f"scaler.joblib not found in {MODELS_DIR}")
-    scaler = joblib.load(scaler_path)
-    cols = [c for c in NUMERIC_COLS if c in X.columns]
-    if cols:
-        X[cols] = scaler.transform(X[cols])
-    return X
-
-
-def _predict(X: pd.DataFrame) -> tuple[list[int], list[float], str, str]:
-    model_path = MODELS_DIR / "model.joblib"
-    if not model_path.exists():
-        raise FileNotFoundError(f"model.joblib not found in {MODELS_DIR}")
-    model = joblib.load(model_path)
-
-    meta_path = MODELS_DIR / "champion.json"
-    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-    model_type = meta.get("model_type", "unknown")
-    trained_on = meta.get("trained_on", "unknown")
-
-    expected_cols = model.feature_names_in_ if hasattr(model, "feature_names_in_") else X.columns
-    for c in expected_cols:
-        if c not in X.columns:
-            X[c] = 0
-    X = X[expected_cols]
-
-    y_prob = model.predict_proba(X)[:, 1]
-    y_pred = (y_prob >= PREDICTION_THRESHOLD).astype(int)
-    return y_pred.tolist(), y_prob.tolist(), model_type, trained_on
-
-
-# ── Cached data loading + prediction ──────────────────────────────────────────
+# ── Cached data loading ────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=900)
 def load_predictions() -> tuple[pd.DataFrame, str, str, str]:
-    """
-    Load active offers and return predictions. Cached for 15 minutes.
-
-    - Full mode  (UCloud): MySQL → feature engineering → champion model → results
-    - CSV mode   (local):  reads test_data/predictions.csv directly (no MySQL needed)
-    """
-    if not _PIPELINE_AVAILABLE:
-        if not _CSV_PATH.exists():
-            raise FileNotFoundError(f"CSV fallback not found: {_CSV_PATH}")
-        df = pd.read_csv(_CSV_PATH)
-        df["product_image"] = None  # CSV doesn't carry image URLs
-        fetched_at = df["predicted_at"].iloc[0] if "predicted_at" in df.columns else "from CSV"
-        log.info(f"CSV mode — loaded {len(df)} rows from {_CSV_PATH}")
-        return df, "csv-fallback", "n/a", fetched_at
-
-    log.info("Cache miss — loading from MySQL and running predictions")
+    """Load pre-scored predictions from the MySQL app table. Cached for 15 minutes."""
+    log.info("Cache miss — loading from MySQL app table")
     conn = get_connection()
-    current = pd.read_sql("SELECT * FROM current", conn)
-    history = pd.read_sql("SELECT * FROM history", conn)
+    df   = pd.read_sql("SELECT * FROM app", conn)
     conn.close()
-    log.info(f"Loaded {len(current)} current offers and {len(history)} history rows")
+    log.info(f"Loaded {len(df)} scored offers from app table")
 
-    if current.empty:
+    if df.empty:
         return pd.DataFrame(), "", "", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    history = parse_timestamps(history)
+    model_type = df["champion_model"].iloc[0]    if "champion_model"    in df.columns else "unknown"
+    trained_on = df["champion_trained_on"].iloc[0] if "champion_trained_on" in df.columns else "unknown"
+    fetched_at = df["predicted_at"].iloc[0]      if "predicted_at"      in df.columns else "unknown"
 
-    active_ids = set(current["unique_id"])
-    active_history = history[history["unique_id"].isin(active_ids)].copy()
+    df["store_lat"] = pd.to_numeric(df["store_lat"], errors="coerce")
+    df["store_lng"] = pd.to_numeric(df["store_lng"], errors="coerce")
+    df = df.sort_values("sell_probability", ascending=False).reset_index(drop=True)
 
-    df, _ = compute_lifecycle_features(active_history)
-
-    # Join store hours back from the first snapshot — compute_lifecycle_features
-    # does not include these but engineer_store_hours() needs them.
-    first_snaps = (
-        active_history.sort_values("fetched_at")
-        .groupby("unique_id")[["store_hours_today", "store_hours_tomorrow"]]
-        .first()
-        .reset_index()
-    )
-    df = df.merge(first_snaps, on="unique_id", how="left")
-
-    df["potential_relabelling"] = False
-
-    df = apply_feature_engineering(df)
-
-    # Join product_image from current table (not kept by compute_lifecycle_features)
-    image_map = current[["unique_id", "product_image"]].drop_duplicates("unique_id")
-    df = df.merge(image_map, on="unique_id", how="left")
-
-    display_cols = df[[
-        "unique_id", "store_name", "store_brand", "store_city",
-        "store_lat", "store_lng",
-        "product_description", "product_category_en", "product_image",
-        "offer_new_price", "offer_original_price", "offer_percent_discount",
-        "offer_stock_unit", "offer_end_time",
-    ]].copy()
-
-    X = drop_columns(df)
-    encoders = load_encoders()
-    X, _ = encode_features(X, encoders=encoders)
-
-    non_numeric = X.select_dtypes(exclude=["number"]).columns.tolist()
-    if non_numeric:
-        log.warning(f"Dropping non-numeric columns before scaling: {non_numeric}")
-        X = X.drop(columns=non_numeric)
-
-    X = _scale(X)
-
-    y_pred, y_prob, model_type, trained_on = _predict(X)
-
-    results = display_cols.copy()
-    results["will_sell"] = y_pred
-    results["sell_probability"] = [round(p, 4) for p in y_prob]
-    results = results.sort_values("sell_probability", ascending=False).reset_index(drop=True)
-
-    fetched_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log.info(f"Scored {len(results)} offers — will sell: {sum(y_pred)}")
-    return results, model_type, trained_on, fetched_at
+    return df, model_type, trained_on, fetched_at
 
 
 # ── UI helpers ─────────────────────────────────────────────────────────────────
@@ -175,11 +64,6 @@ BRAND_LABELS = {
 def _brand_label(raw: str) -> str:
     return BRAND_LABELS.get(str(raw).lower(), str(raw).title())
 
-
-def _category_level1(raw) -> str:
-    if pd.isna(raw) or str(raw).strip() == "":
-        return ""
-    return str(raw).split(">")[0].strip()
 
 
 def _format_end_time(raw) -> str:
@@ -203,10 +87,14 @@ def _render_card(row: pd.Series) -> None:
         # Product image
         img_url = row.get("product_image")
         if img_url and str(img_url) not in ("nan", "None", ""):
-            st.image(img_url, use_column_width=True)
+            st.markdown(
+                f"<img src='{img_url}' style='width:100%;height:180px;"
+                "object-fit:contain;background:#f0f0f0;border-radius:6px;'>",
+                unsafe_allow_html=True,
+            )
         else:
             st.markdown(
-                "<div style='height:140px;background:#f0f0f0;border-radius:6px;"
+                "<div style='height:180px;background:#f0f0f0;border-radius:6px;"
                 "display:flex;align-items:center;justify-content:center;"
                 "color:#aaa;font-size:28px;'>🛒</div>",
                 unsafe_allow_html=True,
@@ -215,7 +103,7 @@ def _render_card(row: pd.Series) -> None:
         # Product name
         st.markdown(f"**{row['product_description']}**")
 
-        cat = _category_level1(row.get("product_category_en"))
+        cat = row.get("category_level1_en", "")
         if cat:
             st.caption(cat)
 
@@ -259,10 +147,6 @@ def _render_card(row: pd.Series) -> None:
 def main() -> None:
     st.title("Anti Food Waste — Aalborg")
     st.markdown("*Live clearance offers ranked by sell-through probability*")
-
-    # Load data
-    if not _PIPELINE_AVAILABLE:
-        st.info("Running in **CSV mode** (mysql-connector not installed). Showing cached predictions from `test_data/predictions.csv`.")
 
     try:
         results, model_type, trained_on, fetched_at = load_predictions()
@@ -308,9 +192,8 @@ def main() -> None:
         )
 
         all_cats = sorted(
-            results["product_category_en"]
+            results["category_level1_en"]
             .dropna()
-            .apply(_category_level1)
             .replace("", pd.NA)
             .dropna()
             .unique()
@@ -350,10 +233,10 @@ def main() -> None:
     if sel_stores:
         df = df[df["store_name"].isin(sel_stores)]
     if sel_cats:
-        df = df[df["product_category_en"].apply(_category_level1).isin(sel_cats)]
+        df = df[df["category_level1_en"].isin(sel_cats)]
     if search_query:
         name_match = df["product_description"].fillna("").str.lower().str.contains(search_query, regex=False)
-        cat_match  = df["product_category_en"].fillna("").str.lower().str.contains(search_query, regex=False)
+        cat_match  = df["category_level1_en"].fillna("").str.lower().str.contains(search_query, regex=False)
         df = df[name_match | cat_match]
     if verdict_filter == "Will sell":
         df = df[df["will_sell"] == 1]

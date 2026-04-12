@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 # ── Configuration ──────────────────────────────────────────────────────────────
 
 PROJECT_ROOT = Path(__file__).parent.parent
-PIPELINE_LOG = OUTPUTS_DIR / "pipeline_log.csv"
+PIPELINE_LOG = OUTPUTS_DIR / "ml_log.csv"
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 

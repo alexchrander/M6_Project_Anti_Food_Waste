@@ -6,6 +6,7 @@ from pathlib import Path
 # Add project root to path so config.py is found
 sys.path.append(str(Path(__file__).parent.parent))
 
+import pandas as pd
 import mysql.connector
 from mysql.connector import connection
 
@@ -196,6 +197,81 @@ def store_current(conn: connection.MySQLConnection, rows: list[dict], fetched_at
 
     for row in rows:
         cursor.execute(sql, {**row, "fetched_at": fetched_at})
+
+    conn.commit()
+    cursor.close()
+    return len(rows)
+
+
+def init_app_table(conn: connection.MySQLConnection) -> None:
+    """
+    Create the app table if it doesn't exist.
+    Schema is derived from APP_COLS in config.py — columns are typed as
+    FLOAT for numeric, DATETIME for datetime, TINYINT for boolean, TEXT for all others.
+    Called once at startup or when the table needs to be recreated.
+    """
+    from config import COLUMNS, APP_COLS
+
+    # Map column types from COLUMNS to MySQL types
+    TYPE_MAP = {
+        "numeric":     "FLOAT",
+        "boolean":     "TINYINT(1)",
+        "datetime":    "DATETIME",
+        "categorical": "TEXT",
+        "onehot":      "TEXT",
+        "passthrough": "TEXT",
+    }
+
+    # Build column definitions from APP_COLS + model output columns
+    model_output_cols = [
+        "will_sell        TINYINT(1)",
+        "sell_probability FLOAT",
+        "predicted_at     DATETIME",
+    ]
+
+    app_col_defs = []
+    for col in APP_COLS:
+        col_type = TYPE_MAP.get(COLUMNS[col]["type"], "TEXT")
+        app_col_defs.append(f"{col} {col_type}")
+
+    all_col_defs = ",\n            ".join(app_col_defs + model_output_cols)
+
+    cursor = conn.cursor()
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS app (
+            {all_col_defs}
+        )
+    """)
+    conn.commit()
+    cursor.close()
+
+
+def store_app_table(conn: connection.MySQLConnection, df: pd.DataFrame) -> int:
+    """
+    Replace the app table with the latest predictions.
+    Clears the table first (TRUNCATE), then inserts all rows from df.
+    Columns are driven by df — whatever predict.py puts in app_table lands here.
+    Returns the number of inserted rows.
+    """
+    cursor = conn.cursor()
+
+    # Wipe the app table so it only ever holds the latest predictions
+    cursor.execute("DELETE FROM app")
+
+    if df.empty:
+        conn.commit()
+        cursor.close()
+        return 0
+
+    cols        = list(df.columns)
+    col_names   = ", ".join(cols)
+    placeholders = ", ".join([f"%({c})s" for c in cols])
+    sql         = f"INSERT INTO app ({col_names}) VALUES ({placeholders})"
+
+    # Convert DataFrame rows to dicts, replacing NaN with None for MySQL compatibility
+    rows = df.where(pd.notnull(df), None).to_dict(orient="records")
+    for row in rows:
+        cursor.execute(sql, row)
 
     conn.commit()
     cursor.close()

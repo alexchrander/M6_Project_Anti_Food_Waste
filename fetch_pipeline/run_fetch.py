@@ -30,11 +30,11 @@ def add_unique_id(rows: list[dict]) -> list[dict]:
 
 def log_run(summary: dict) -> None:
     """
-    Append one row to outputs/run_log.csv after every pipeline run.
+    Append one row to outputs/fetch_log.csv after every pipeline run.
     The file is created with a header on the first run.
     """
     OUTPUTS_DIR.mkdir(exist_ok=True)
-    log_path    = OUTPUTS_DIR / "run_log.csv"
+    log_path    = OUTPUTS_DIR / "fetch_log.csv"
     file_exists = log_path.is_file()
 
     with open(log_path, mode="a", newline="", encoding="utf-8") as f:
@@ -89,7 +89,7 @@ def main() -> None:
         "current_replaced":     current_inserted,
     }
     log_run(summary)
-    print(f"  [run_log]  Row appended to outputs/run_log.csv")
+    print(f"  [run_log]  Row appended to outputs/fetch_log.csv")
 
     print("\n" + "=" * 60)
     print(f"Fetch pipeline complete — {fetched_at}")

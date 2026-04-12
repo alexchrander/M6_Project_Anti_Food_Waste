@@ -140,14 +140,14 @@ def _parse_store_hours(hours_str):
     try:
         s = str(hours_str).strip().lower()
         if s in ("closed", "", "nan", "none"):
-            return None, None
+            return (0.0, 0.0)
         open_str, close_str = s.split("-")
         def to_decimal(t):
             h, m = t.strip().split(":")
             return int(h) + int(m) / 60
         return to_decimal(open_str), to_decimal(close_str)
     except Exception:
-        return None, None
+        return (0.0, 0.0)
 
 
 def engineer_store_hours(df: pd.DataFrame) -> pd.DataFrame:

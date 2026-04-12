@@ -68,36 +68,26 @@ def compute_lifecycle_features(completed: pd.DataFrame) -> pd.DataFrame:
     first = completed.groupby("unique_id").first().reset_index()
     last  = completed.groupby("unique_id").last().reset_index()
 
-    # ── n_snapshots ───────────────────────────────────────────────────────────
-    n_snapshots = (
-        completed.groupby("unique_id")["fetched_at"]
-        .count()
-        .reset_index()
-        .rename(columns={"fetched_at": "n_snapshots"})
-    )
-
-    # ── had_overnight_gap ─────────────────────────────────────────────────────
+    # ── n_snapshots + had_overnight_gap ──────────────────────────────────────
     completed["time_diff_hours"] = (
         completed.groupby("unique_id")["fetched_at"]
         .diff()
         .dt.total_seconds() / 3600
     )
-    overnight_gap = (
-        completed.groupby("unique_id")["time_diff_hours"]
-        .max()
-        .gt(4)
-        .reset_index()
-        .rename(columns={"time_diff_hours": "had_overnight_gap"})
-    )
+    stats = completed.groupby("unique_id").agg(
+        n_snapshots=("fetched_at", "count"),
+        had_overnight_gap=("time_diff_hours", lambda x: x.max() > 4),
+    ).reset_index()
 
     # ── Build base dataset from first snapshot ────────────────────────────────
     dataset = first[[
         "unique_id", "store_id", "store_name", "store_brand", "store_city",
-        "store_lat", "store_lng", "store_street", "store_zip",
-        "product_ean", "product_description", "offer_ean",
+        "store_lat", "store_lng", "store_street", "store_zip", "store_country",
+        "product_ean", "product_description", "product_image", "offer_ean",
         "offer_original_price", "offer_new_price", "offer_discount",
         "offer_percent_discount", "offer_stock_unit", "offer_start_time",
         "offer_end_time", "store_customer_flow_today",
+        "store_hours_today", "store_hours_tomorrow",
         "product_category_da", "product_category_en",
     ]].copy()
 
@@ -116,13 +106,12 @@ def compute_lifecycle_features(completed: pd.DataFrame) -> pd.DataFrame:
     )
 
     # ── Merge metadata ────────────────────────────────────────────────────────
-    dataset = dataset.merge(n_snapshots,   on="unique_id")
-    dataset = dataset.merge(overnight_gap, on="unique_id")
+    dataset = dataset.merge(stats, on="unique_id")
 
-    return dataset, last
+    return dataset
 
 
-def compute_labels(dataset: pd.DataFrame, last: pd.DataFrame) -> pd.DataFrame:
+def compute_labels(dataset: pd.DataFrame, completed: pd.DataFrame) -> pd.DataFrame:
     """
     Compute training-only labels that require completed offer data.
     Not used by predict.py since live offers haven't completed yet.
@@ -134,6 +123,7 @@ def compute_labels(dataset: pd.DataFrame, last: pd.DataFrame) -> pd.DataFrame:
     """
     dataset = dataset.copy()
 
+    last = completed.groupby("unique_id").last().reset_index()
     dataset["final_stock"] = last["offer_stock"].values
 
     # ── sell_through_rate ─────────────────────────────────────────────────────
@@ -171,8 +161,8 @@ def main():
     history          = parse_timestamps(history)
     completed        = exclude_active(history, current)
 
-    dataset, last = compute_lifecycle_features(completed)
-    dataset       = compute_labels(dataset, last)
+    dataset = compute_lifecycle_features(completed)
+    dataset = compute_labels(dataset, completed)
 
     log.info(f"Aggregated dataset: {len(dataset)} rows, {dataset.columns.nunique()} columns")
     log.info(f"Sell-through rate — mean: {dataset['sell_through_rate'].mean():.3f}, zero: {(dataset['sell_through_rate'] == 0).mean():.1%}")
