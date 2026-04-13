@@ -113,16 +113,37 @@ def _render_card(row: pd.Series) -> None:
         store = row.get("store_name", "")
         st.markdown(f"🏪 {brand} · {store}")
 
-        # Prices
+        # Prices + stock
         new_p  = row.get("offer_new_price", "")
         orig_p = row.get("offer_original_price", "")
         disc   = row.get("offer_percent_discount", "")
         unit   = row.get("offer_stock_unit", "")
+        stock  = row.get("offer_stock", "")
+        saving = row.get("offer_discount", "")
+
+        # Format stock: kg items show 1 decimal, count items show as integer
+        if str(unit).lower() == "kg" and stock not in ("", None):
+            try:
+                stock_str = f"{float(stock):.1f} kg"
+            except (ValueError, TypeError):
+                stock_str = f"{stock} kg"
+        elif stock not in ("", None):
+            try:
+                stock_str = f"{int(float(stock))} pcs"
+            except (ValueError, TypeError):
+                stock_str = str(stock)
+        else:
+            stock_str = ""
+
+        saving_str = f"You save {saving} kr" if saving not in ("", None) else ""
+
         st.markdown(
             f"<span style='font-size:20px;font-weight:700'>{new_p} kr</span> "
             f"<span style='text-decoration:line-through;color:#888'>{orig_p} kr</span> "
-            f"<span style='color:#e67e22'>-{disc}%</span>  "
-            f"<span style='color:#999;font-size:12px'>/{unit}</span>",
+            f"<span style='color:#e67e22'>-{disc}%</span><br/>"
+            f"<span style='color:#27ae60;font-size:13px'>{saving_str}</span>"
+            f"{'&nbsp;&nbsp;' if saving_str and stock_str else ''}"
+            f"<span style='color:#999;font-size:13px'>{stock_str}</span>",
             unsafe_allow_html=True,
         )
 
@@ -229,6 +250,13 @@ def main() -> None:
         )
         min_prob = min_prob_pct / 100
 
+        st.divider()
+        sort_by = st.radio(
+            "Sort by",
+            options=["Sell probability", "Savings (kr)", "Savings (%)"],
+            horizontal=False,
+        )
+
     # Apply filters
     df = results.copy()
     if sel_brands:
@@ -246,6 +274,14 @@ def main() -> None:
     elif verdict_filter == "Won't sell":
         df = df[df["will_sell"] == 0]
     df = df[df["sell_probability"] >= min_prob]
+
+    # Apply sort
+    if sort_by == "Savings (kr)":
+        df = df.sort_values("offer_discount", ascending=False).reset_index(drop=True)
+    elif sort_by == "Savings (%)":
+        df = df.sort_values("offer_percent_discount", ascending=False).reset_index(drop=True)
+    else:
+        df = df.sort_values("sell_probability", ascending=False).reset_index(drop=True)
 
     # ── Summary metrics ────────────────────────────────────────────────────────
     m1, m2, m3, m4 = st.columns(4)
@@ -278,27 +314,31 @@ def main() -> None:
                 else:
                     color = [231, 76, 60, 230]
 
-                # Build offer list for tooltip (top 6 by probability)
+                # Build offer list for tooltip (top 6 by sell probability)
                 lines = []
                 for _, r in grp.sort_values("sell_probability", ascending=False).head(6).iterrows():
-                    verdict = "✓" if r["will_sell"] == 1 else "✗"
+                    verdict    = "✓" if r["will_sell"] == 1 else "✗"
+                    sell_prob  = int(r["sell_probability"] * 100)
+                    disc       = r.get("offer_percent_discount", "")
+                    price      = r.get("offer_new_price", "")
                     lines.append(
-                        f"{verdict} {r['product_description']} — "
-                        f"{r['offer_new_price']} kr "
-                        f"({int(r['sell_probability'] * 100)}%)"
+                        f"{verdict} {r['product_description']}<br/>"
+                        f"&nbsp;&nbsp;&nbsp;"
+                        f"<span style='color:#888'>{price} kr · -{disc}% off</span> · "
+                        f"<span style='color:#3498db'>sell prob: {sell_prob}%</span>"
                     )
                 offers_html = "<br/>".join(lines)
                 if n_total > 6:
                     offers_html += f"<br/><i>… and {n_total - 6} more</i>"
 
                 store_rows.append({
-                    "lat":        lat,
-                    "lon":        lng,
-                    "store_name": name,
+                    "lat":         lat,
+                    "lon":         lng,
+                    "store_name":  name,
                     "store_brand": _brand_label(brand),
-                    "n_total":    n_total,
-                    "n_sell":     n_sell,
-                    "color":      color,
+                    "n_total":     n_total,
+                    "n_sell":      n_sell,
+                    "color":       color,
                     "offers_html": offers_html,
                 })
 
@@ -327,7 +367,7 @@ def main() -> None:
                     "<b style='font-size:14px'>{store_name}</b> "
                     "<span style='color:#888'>({store_brand})</span><br/>"
                     "<b>{n_total}</b> offers &nbsp;·&nbsp; "
-                    "<b style='color:#27ae60'>{n_sell} will sell</b>"
+                    "<b style='color:#27ae60'>{n_sell} predicted to sell</b>"
                     "<hr style='margin:6px 0;border-color:#ddd'/>"
                     "{offers_html}"
                 ),
