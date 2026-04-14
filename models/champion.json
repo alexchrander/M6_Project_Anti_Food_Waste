@@ -1,0 +1,14 @@
+{
+    "model_type": "lightgbm",
+    "mlflow_run_id": "24e4e8e619ef46b4bc060f0a0b6fe8fd",
+    "trained_on": "2026-04-12",
+    "sell_threshold": 0.8,
+    "pr_auc_threshold": 0.85,
+    "prediction_threshold": 0.5,
+    "pr_auc": 0.4708,
+    "f1": 0.4948,
+    "recall": 0.6283,
+    "precision": 0.408,
+    "log_loss": 0.4984,
+    "evaluated_on": "2026-04-14"
+}
