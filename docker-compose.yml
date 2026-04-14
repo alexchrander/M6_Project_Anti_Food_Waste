@@ -1,0 +1,101 @@
+# ── Anti Food Waste — Docker Compose ──────────────────────────────────────────
+#
+# Services:
+#   db         MySQL 8 database (persistent volume)
+#   app        Streamlit web UI  →  http://localhost:8501
+#   scheduler  Runs pipelines on a cron schedule (see ./crontab)
+#
+# Quick start:
+#   1. cp .env.example .env  &&  fill in ANTI_FOOD_WASTE_API
+#   2. docker-compose up --build
+#
+# First-time model bootstrap (run once after DB has collected enough data):
+#   docker-compose run --rm scheduler python ml_pipeline/run_ml.py
+#
+# Run any pipeline ad-hoc:
+#   docker-compose run --rm scheduler python fetch_pipeline/run_fetch.py
+#   docker-compose run --rm scheduler python predict_pipeline/predict.py
+#   docker-compose run --rm scheduler python ml_pipeline/run_ml.py
+
+services:
+
+  # ── MySQL database ───────────────────────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: food_waste_db
+    env_file: .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE:      ${DB_NAME:-food_waste}
+      MYSQL_USER:          ${DB_USER:-food_waste_user}
+      MYSQL_PASSWORD:      ${DB_PASSWORD:-food_waste_alex}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost",
+             "-u", "${DB_USER:-food_waste_user}",
+             "-p${DB_PASSWORD:-food_waste_alex}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Streamlit web app ────────────────────────────────────────────────────────
+  app:
+    build: .
+    container_name: food_waste_app
+    command: >
+      streamlit run app/app.py
+        --server.port=8501
+        --server.address=0.0.0.0
+        --server.headless=true
+    ports:
+      - "8501:8501"
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-food_waste}
+      DB_USER: ${DB_USER:-food_waste_user}
+      DB_PASSWORD: ${DB_PASSWORD:-food_waste_alex}
+    volumes:
+      - pipeline_data:/app/data
+      - pipeline_models:/app/models
+      - pipeline_outputs:/app/outputs
+      - pipeline_mlruns:/app/mlruns
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Pipeline scheduler ───────────────────────────────────────────────────────
+  # Runs fetch+predict and the ML pipeline on the schedule defined in ./crontab.
+  scheduler:
+    build: .
+    container_name: food_waste_scheduler
+    command: supercronic /app/crontab
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-food_waste}
+      DB_USER: ${DB_USER:-food_waste_user}
+      DB_PASSWORD: ${DB_PASSWORD:-food_waste_alex}
+    volumes:
+      - pipeline_data:/app/data
+      - pipeline_models:/app/models
+      - pipeline_outputs:/app/outputs
+      - pipeline_mlruns:/app/mlruns
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mysql_data:       # MySQL data — survives container restarts
+  pipeline_data:    # Parquet snapshots (dataset / features / predictions)
+  pipeline_models:  # Trained model artifacts (model.joblib, champion.json, …)
+  pipeline_outputs: # CSV run logs
+  pipeline_mlruns:  # MLflow experiment tracking

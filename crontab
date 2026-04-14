@@ -1,0 +1,9 @@
+# Anti Food Waste — pipeline schedule (read by supercronic)
+#
+# Format: min hour day month weekday   command
+#
+# Fetch + Predict: every 15 minutes
+*/15 * * * * cd /app && python fetch_pipeline/run_fetch.py && python predict_pipeline/predict.py >> /app/outputs/cron_fetch_predictions.log 2>&1
+
+# ML Pipeline: daily at 02:00 (retrain only triggers if PR AUC drops below threshold)
+0 2 * * * cd /app && python ml_pipeline/run_ml.py >> /app/outputs/cron_ml.log 2>&1

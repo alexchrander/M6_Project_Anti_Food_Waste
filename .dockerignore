@@ -1,0 +1,21 @@
+.git
+.DS_Store
+*.env
+.env*
+
+# Runtime directories — mounted as Docker volumes, not baked into the image
+data/
+outputs/
+mlruns/
+# models/ is intentionally included — pre-trained artifacts for instant predictions
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Editor / OS
+.vscode/
+*.swp
