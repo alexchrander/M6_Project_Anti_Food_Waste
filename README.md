@@ -61,7 +61,7 @@ config:
 ---
 flowchart LR
     subgraph realtime ["Every 15 min (06:00-00:00)"]
-        A([Salling Group API]) --> F([Fetch])
+        A[Salling Group API] --> F([Fetch])
         F --> B[(MySQL Current & History)]
         B --> P([Predictions])
         P --> D[(MySQL App)]
