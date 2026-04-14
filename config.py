@@ -19,8 +19,8 @@ ZIP_CODES = ["9000"]   # Add more zip codes here when ready to expand
 DB_HOST     = os.getenv("DB_HOST",     "sql-net")
 DB_PORT     = int(os.getenv("DB_PORT", "3306"))
 DB_NAME     = os.getenv("DB_NAME",     "food_waste")
-DB_USER     = os.getenv("DB_USER",     "food_waste_user")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "food_waste_alex")
+DB_USER     = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 # All paths are absolute and derived from the project root.
