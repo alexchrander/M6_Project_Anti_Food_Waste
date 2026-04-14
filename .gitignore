@@ -1,3 +1,4 @@
 *.env
 *mlruns/
 *models/
+*data/predictions/

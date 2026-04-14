@@ -40,7 +40,7 @@ MLRUNS_DIR      = PROJECT_ROOT / "mlruns"
 SELL_THRESHOLD = 0.8
 
 # Evaluation — retrain champion if PR AUC drops below this
-PR_AUC_THRESHOLD = 0.5
+PR_AUC_THRESHOLD = 0.85
 
 # Classification — probability above this is predicted as will_sell = 1
 # Default 0.5, but likely needs tuning down given ~2.5% positive rate
