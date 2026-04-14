@@ -27,6 +27,10 @@ ENCODER_PATH       = MODELS_DIR / "encoder.joblib"
 ONEHOT_COLS_PATH   = MODELS_DIR / "onehot.joblib"
 SCALER_PATH        = MODELS_DIR / "scaler.joblib"
 
+CANDIDATE_ENCODER_PATH     = MODELS_DIR / "candidate_encoder.joblib"
+CANDIDATE_ONEHOT_COLS_PATH = MODELS_DIR / "candidate_onehot.joblib"
+CANDIDATE_SCALER_PATH      = MODELS_DIR / "candidate_scaler.joblib"
+
 # ── Data loading ───────────────────────────────────────────────────────────────
 
 def load_latest_features() -> pd.DataFrame:
@@ -197,10 +201,10 @@ def load_scaler() -> StandardScaler:
     return joblib.load(SCALER_PATH)
 
 
-def scale_features(X_train: pd.DataFrame, X_test: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def scale_features(X_train: pd.DataFrame, X_test: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, StandardScaler]:
     """
     Fit StandardScaler on train split only, apply to both splits.
-    Saves fitted scaler to models/scaler.joblib for use at inference.
+    Returns the fitted scaler — caller is responsible for saving it.
     Training only — inference uses preprocess_for_inference() instead.
     """
     cols_to_scale = [c for c in NUMERIC_COLS if c in X_train.columns]
@@ -212,8 +216,7 @@ def scale_features(X_train: pd.DataFrame, X_test: pd.DataFrame) -> tuple[pd.Data
     X_train[cols_to_scale] = scaler.fit_transform(X_train[cols_to_scale])
     X_test[cols_to_scale]  = scaler.transform(X_test[cols_to_scale])
 
-    save_scaler(scaler)
-    return X_train, X_test
+    return X_train, X_test, scaler
 
 
 def preprocess_for_inference(X: pd.DataFrame) -> pd.DataFrame:
@@ -231,6 +234,51 @@ def preprocess_for_inference(X: pd.DataFrame) -> pd.DataFrame:
         X[cols_to_scale] = scaler.transform(X[cols_to_scale])
 
     return X
+
+# ── Candidate artifact management ─────────────────────────────────────────────
+
+def save_candidate_artifacts(encoders: dict, onehot_columns: list, scaler: StandardScaler) -> None:
+    """
+    Save preprocessing artifacts to candidate paths.
+    These are only promoted to canonical paths when a new champion is confirmed
+    via promote_candidate_artifacts() — called inside evaluate.py's save_champion().
+    """
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    joblib.dump(encoders,       CANDIDATE_ENCODER_PATH)
+    joblib.dump(onehot_columns, CANDIDATE_ONEHOT_COLS_PATH)
+    joblib.dump(scaler,         CANDIDATE_SCALER_PATH)
+    log.info("Saved candidate preprocessing artifacts (encoder, onehot, scaler)")
+
+
+def cleanup_candidate_artifacts() -> None:
+    """
+    Delete candidate preprocessing artifacts after the pipeline finishes.
+    Called unconditionally at the end of run_ml.py regardless of whether
+    a new champion was promoted.
+    """
+    for path in (CANDIDATE_ENCODER_PATH, CANDIDATE_ONEHOT_COLS_PATH, CANDIDATE_SCALER_PATH):
+        if path.exists():
+            path.unlink()
+            log.info(f"Deleted candidate artifact: {path.name}")
+
+
+def promote_candidate_artifacts() -> None:
+    """
+    Copy candidate preprocessing artifacts to canonical paths.
+    Called by evaluate.py's save_champion() when a new model is promoted,
+    ensuring model.joblib and its preprocessing artifacts are always in sync.
+    """
+    import shutil
+    for src, dst in [
+        (CANDIDATE_ENCODER_PATH,     ENCODER_PATH),
+        (CANDIDATE_ONEHOT_COLS_PATH, ONEHOT_COLS_PATH),
+        (CANDIDATE_SCALER_PATH,      SCALER_PATH),
+    ]:
+        if not src.exists():
+            raise FileNotFoundError(f"Candidate artifact not found: {src} — run preprocessing.py first")
+        shutil.copy2(src, dst)
+        log.info(f"Promoted {src.name} → {dst.name}")
+
 
 # ── Train/test split ───────────────────────────────────────────────────────────
 
@@ -287,10 +335,8 @@ def main():
     y = create_target(df)
     X = drop_columns(df)
 
-    # Encode — fit and save label encoders + one-hot column names
+    # Encode — fit label encoders + one-hot column names
     X, encoders, onehot_columns = encode_features(X)
-    save_label_encoders(encoders)
-    save_onehot_columns(onehot_columns)
 
     log.info(f"Feature matrix shape after encoding: {X.shape}")
     log.info(f"Features: {list(X.columns)}")
@@ -298,8 +344,12 @@ def main():
     # Split — time-based, deterministic
     X_train, X_test, y_train, y_test = split(X, y)
 
-    # Scale — fit on train only, apply to both, save scaler
-    X_train, X_test = scale_features(X_train, X_test)
+    # Scale — fit on train only, apply to both
+    X_train, X_test, scaler = scale_features(X_train, X_test)
+
+    # Save artifacts to candidate paths — only promoted to canonical if a new
+    # champion is confirmed in evaluate.py, keeping model.joblib in sync.
+    save_candidate_artifacts(encoders, onehot_columns, scaler)
 
     # Save splits
     save_splits(X_train, X_test, y_train, y_test, today)

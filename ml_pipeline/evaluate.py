@@ -24,6 +24,7 @@ from config import (
     FEATURES_DIR, MODELS_DIR, MLRUNS_DIR,
     SELL_THRESHOLD, PR_AUC_THRESHOLD, PREDICTION_THRESHOLD,
 )
+from preprocessing import promote_candidate_artifacts
 
 logging.basicConfig(
     level=logging.INFO,
@@ -156,11 +157,13 @@ def _threshold_meta() -> dict:
 
 
 def save_champion(model, model_type: str, run_id: str, metrics: dict):
-    """Save a new champion model and update champion.json."""
+    """Save a new champion model, promote candidate preprocessing artifacts, and update champion.json."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     joblib.dump(model, MODELS_DIR / "model.joblib")
     log.info(f"Saved champion model to {MODELS_DIR / 'model.joblib'}")
+
+    promote_candidate_artifacts()
 
     champion_meta = {
         "model_type":    model_type,

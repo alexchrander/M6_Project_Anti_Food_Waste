@@ -16,6 +16,7 @@ from config import (
     MODELS_DIR, DATASET_DIR, FEATURES_DIR, OUTPUTS_DIR,
     SELL_THRESHOLD, PR_AUC_THRESHOLD, PREDICTION_THRESHOLD,
 )
+from preprocessing import cleanup_candidate_artifacts
 
 logging.basicConfig(
     level=logging.INFO,
@@ -210,6 +211,8 @@ def main():
         "pipeline_status":           "success",
         "failed_step":               "",
     })
+
+    cleanup_candidate_artifacts()
 
     log.info(f"Pipeline completed successfully in {duration}s")
 
