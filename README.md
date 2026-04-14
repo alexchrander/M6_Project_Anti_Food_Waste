@@ -37,7 +37,7 @@ docker compose run --rm scheduler python predict_pipeline/predict.py
 **5. Open the app**
 Go to http://localhost:8501
 
-The scheduler automatically runs fetch + predict every 15 minutes and the ML pipeline daily at 02:00.
+The scheduler automatically runs fetch + predict every 15 minutes from 06:00 to 00:00, and the ML pipeline nightly at 02:00.
 
 ## Useful commands
 
