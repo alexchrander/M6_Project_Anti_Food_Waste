@@ -122,12 +122,13 @@ def _render_card(row: pd.Series) -> None:
         saving = row.get("offer_discount", "")
 
         # Format stock: kg items show 1 decimal, count items show as integer
-        if str(unit).lower() == "kg" and stock not in ("", None):
+        stock_missing = stock in ("", None) or pd.isna(stock)
+        if not stock_missing and str(unit).lower() == "kg":
             try:
                 stock_str = f"{float(stock):.1f} kg"
             except (ValueError, TypeError):
                 stock_str = f"{stock} kg"
-        elif stock not in ("", None):
+        elif not stock_missing:
             try:
                 stock_str = f"{int(float(stock))} pcs"
             except (ValueError, TypeError):

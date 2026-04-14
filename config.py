@@ -88,6 +88,7 @@ COLUMNS = {
     "offer_original_price":         {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "offer_discount":               {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "offer_percent_discount":       {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
+    "offer_stock":                  {"type": "numeric",     "model": False, "app": True,  "predictions": True},
     "offer_stock_unit":             {"type": "categorical", "model": True,  "app": True,  "predictions": True},
     "offer_start_time":             {"type": "datetime",    "model": True,  "app": True,  "predictions": True},
     "offer_end_time":               {"type": "datetime",    "model": True,  "app": True,  "predictions": True},
