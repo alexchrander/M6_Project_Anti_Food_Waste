@@ -23,7 +23,7 @@ outputs/          # Prediction outputs (gitignored)
 
 **1. Clone the repository**
 ```bash
-git clone <repo-url>
+git clone https://github.com/alexchrander/M6_Project_Anti_Food_Waste.git
 cd M6_Project_Anti_Food_Waste
 ```
 
