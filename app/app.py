@@ -1,9 +1,9 @@
 import sys
 from pathlib import Path
 
-# Add project root and fetch_pipeline to path
+# Add project root and fetch_prediction_pipeline to path
 sys.path.append(str(Path(__file__).parent.parent))
-sys.path.append(str(Path(__file__).parent.parent / "fetch_pipeline"))
+sys.path.append(str(Path(__file__).parent.parent / "fetch_prediction_pipeline"))
 
 import logging
 import pandas as pd

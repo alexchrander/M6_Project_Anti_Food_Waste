@@ -44,8 +44,8 @@ docker compose up --build
 **4. Trigger the first run**
 In a new terminal:
 ```bash
-docker compose run --rm scheduler python fetch_pipeline/run_fetch.py
-docker compose run --rm scheduler python predict_pipeline/predict.py
+docker compose run --rm scheduler python fetch_prediction_pipeline/run_fetch.py
+docker compose run --rm scheduler python fetch_prediction_pipeline/predict.py
 ```
 
 **5. Open the app**
@@ -61,19 +61,9 @@ The scheduler automatically runs fetch + predict every 15 minutes from 06:00 to 
 | `docker compose down` | Stop everything (keep data) |
 | `docker compose down -v` | Stop everything and delete all data |
 | `docker compose logs scheduler` | View pipeline logs |
-| `docker compose run --rm scheduler python fetch_pipeline/run_fetch.py` | Run fetch manually |
-| `docker compose run --rm scheduler python predict_pipeline/predict.py` | Run predictions manually |
-| `docker compose run --rm scheduler python ml_pipeline/run_ml.py` | Retrain model manually |
-
-## Reproducing the ML pipeline
-
-To retrain the model from scratch after collecting enough data:
-
-```bash
-docker compose run --rm scheduler python ml_pipeline/run_ml.py
-```
-
-This runs `build_dataset.py` → `build_features.py` → `preprocessing.py` → `train.py` → `evaluate.py` in sequence and saves the new model to `models/`.
+| `docker compose run --rm scheduler python fetch_prediction_pipeline/run_fetch.py` | Run fetch manually |
+| `docker compose run --rm scheduler python fetch_prediction_pipeline/predict.py` | Run predictions manually |
+| `docker compose run --rm scheduler python ml_pipeline/run_ml.py` | Run ML pipeline manually |
 
 ## Pipeline Diagram
 

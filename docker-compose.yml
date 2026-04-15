@@ -13,8 +13,8 @@
 #   docker-compose run --rm scheduler python ml_pipeline/run_ml.py
 #
 # Run any pipeline ad-hoc:
-#   docker-compose run --rm scheduler python fetch_pipeline/run_fetch.py
-#   docker-compose run --rm scheduler python predict_pipeline/predict.py
+#   docker-compose run --rm scheduler python fetch_prediction_pipeline/run_fetch.py
+#   docker-compose run --rm scheduler python fetch_prediction_pipeline/predict.py
 #   docker-compose run --rm scheduler python ml_pipeline/run_ml.py
 
 services:

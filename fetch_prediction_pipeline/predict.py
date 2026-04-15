@@ -1,11 +1,11 @@
 import sys
 from pathlib import Path
 
-# predict.py lives in predict_pipeline/ — project root is one level up.
+# predict.py lives in fetch_prediction_pipeline/ — project root is one level up.
 # All three source directories must be on the path explicitly.
-sys.path.append(str(Path(__file__).parent.parent))                    # project root → config.py
-sys.path.append(str(Path(__file__).parent.parent / "fetch_pipeline")) # store_sql.py
-sys.path.append(str(Path(__file__).parent.parent / "ml_pipeline"))    # build_dataset, build_features, preprocessing
+sys.path.append(str(Path(__file__).parent.parent))                                # project root → config.py
+sys.path.append(str(Path(__file__).parent.parent / "fetch_prediction_pipeline")) # store_sql.py
+sys.path.append(str(Path(__file__).parent.parent / "ml_pipeline"))               # build_dataset, build_features, preprocessing
 
 import csv
 import json
@@ -70,6 +70,7 @@ def predict(X: pd.DataFrame) -> tuple[list[int], list[float], str, str]:
     meta_path     = MODELS_DIR / "champion.json"
     champion_meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
     model_type    = champion_meta.get("model_type", "unknown")
+    run_id        = champion_meta.get("mlflow_run_id", "")
     trained_on    = champion_meta.get("trained_on", "unknown")
 
     # Align columns to what the model was trained on
@@ -85,7 +86,7 @@ def predict(X: pd.DataFrame) -> tuple[list[int], list[float], str, str]:
     y_pred = (y_prob >= PREDICTION_THRESHOLD).astype(int)  # uses config threshold
 
     log.info(f"Using prediction threshold: {PREDICTION_THRESHOLD}")
-    return y_pred.tolist(), y_prob.tolist(), model_type, trained_on
+    return y_pred.tolist(), y_prob.tolist(), model_type, run_id, trained_on
 
 # ── Output ─────────────────────────────────────────────────────────────────────
 
@@ -155,6 +156,7 @@ def log_predict_run(run: dict) -> None:
         "pct_will_sell",
         "avg_sell_probability",
         "champion_model",
+        "champion_run_id",
         "champion_trained_on",
         "status",
         "failed_reason",
@@ -192,6 +194,7 @@ def main():
                 "pct_will_sell":        0,
                 "avg_sell_probability": 0,
                 "champion_model":       "",
+                "champion_run_id":      "",
                 "champion_trained_on":  "",
                 "status":               "success",
                 "failed_reason":        "",
@@ -219,7 +222,7 @@ def main():
         X = drop_columns(df)
         X = preprocess_for_inference(X)
 
-        y_pred, y_prob, model_type, trained_on = predict(X)
+        y_pred, y_prob, model_type, run_id, trained_on = predict(X)
 
         # ── Build outputs ──────────────────────────────────────────────────────
         app_table = build_app_table(df, y_pred, y_prob, predicted_at)
@@ -255,6 +258,7 @@ def main():
             "pct_will_sell":        pct_will_sell,
             "avg_sell_probability": avg_sell_prob,
             "champion_model":       model_type,
+            "champion_run_id":      run_id,
             "champion_trained_on":  trained_on,
             "status":               "success",
             "failed_reason":        "",
@@ -275,6 +279,7 @@ def main():
             "pct_will_sell":        "",
             "avg_sell_probability": "",
             "champion_model":       "",
+            "champion_run_id":      "",
             "champion_trained_on":  "",
             "status":               "failed",
             "failed_reason":        str(e),

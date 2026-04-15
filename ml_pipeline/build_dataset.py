@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent))
-sys.path.append(str(Path(__file__).parent.parent / "fetch_pipeline"))
+sys.path.append(str(Path(__file__).parent.parent / "fetch_prediction_pipeline"))
 
 from store_sql import get_connection
 from config import DATASET_DIR
