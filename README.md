@@ -10,7 +10,7 @@ Predicts which clearance offers from Salling Group stores are likely to sell bef
 __pycache__/                 # Auto-generated Python cache files
 app/                         # Script for Streamlit dashboard
 data/                        # Raw-,feature-, and predictions data (gitignored)
-fetch_prediction_pipeline/   # Fetches live clearance offers from the Salling Group API followed by predictions pipeline
+fetch_prediction_pipeline/   # Fetches live clearance offers from the Salling Group API followed by prediction pipeline
 ml_pipeline/                 # Evaluates and retrains new model (if triggered)
 models/                      # Saved champion model artifacts
 outputs/                     # Log outputs from the full pipeline
