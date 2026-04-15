@@ -13,7 +13,7 @@ data/                        # Raw-,feature-, and predictions data (gitignored)
 fetch_prediction_pipeline/   # Fetches live clearance offers from the Salling Group API followed by predictions pipeline
 ml_pipeline/                 # Evaluates and retrains new model (if triggered)
 models/                      # Saved champion model artifacts
-outputs/                     # Log outputs from the whole pipeline
+outputs/                     # Log outputs from the full pipeline
 shell/                       # Shell scripts used by cron jobs
 
 # Files
@@ -23,7 +23,7 @@ shell/                       # Shell scripts used by cron jobs
 Dockerfile                   # Instructions for building the Docker image
 Pipeline_Diagram.png         # Visual overview of the full pipeline
 README.md                    # This file
-config.py                    # Shared configuration and constants across whole pipeline
+config.py                    # Shared configuration and constants across the full pipeline
 crontab                      # Cron schedule for the fetch-, prediction-, and ML pipelines
 docker-compose.yml           # Defines and orchestrates the db, app, and scheduler services
 requirements.txt             # Python dependencies
@@ -56,6 +56,9 @@ docker compose up --build
 ```
 
 **4. Trigger the first run**
+
+The scheduler only activates on its cron schedule, so the first fetch and prediction must be triggered manually.
+
 In a new terminal:
 ```bash
 docker compose run --rm scheduler python fetch_prediction_pipeline/run_fetch.py
@@ -65,7 +68,7 @@ docker compose run --rm scheduler python fetch_prediction_pipeline/predict.py
 **5. Open the app**
 Go to http://localhost:8501
 
-The scheduler automatically runs fetch + predict every 15 minutes from 06:00 to 00:00, and the ML pipeline nightly at 02:00.
+The scheduler automatically runs the fetch- and prediction pipeline every 15 minutes from 06:00 to 00:00, and the ML pipeline every night at 02:00.
 
 ## Useful commands
 
