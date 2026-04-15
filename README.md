@@ -9,12 +9,12 @@ Predicts which clearance offers from Salling Group stores are likely to sell bef
 # Folders
 __pycache__/                 # Auto-generated Python cache files
 app/                         # Script for Streamlit dashboard
-data/                        # Raw-,feature-, and predictions data (gitignored)
+data/                        # Raw-,feature-, and prediction data (gitignored)
 fetch_prediction_pipeline/   # Fetches live clearance offers from the Salling Group API followed by prediction pipeline
 ml_pipeline/                 # Evaluates and retrains new model (if triggered)
 models/                      # Saved champion model artifacts
 outputs/                     # Log outputs from the full pipeline
-shell/                       # Shell scripts used by cron jobs
+shell/                       # Shell scripts used by cron job
 
 # Files
 .dockerignore                # Files and folders excluded from the Docker build context
