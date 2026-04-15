@@ -1,19 +1,32 @@
 # Anti Food Waste — Aalborg
-Predicts which clearance offers from Salling Group stores are likely to sell before expiry, using a live fetch-, predict-, and ML pipeline served with a Streamlit dashboard.
+Predicts which clearance offers from Salling Group stores are likely to sell before expiry, using a live fetch-, prediction-, and ML pipeline served with a Streamlit dashboard.
 
 **Live App:** [https://app-food-waste.cloud.sdu.dk/](https://app-food-waste.cloud.sdu.dk/)
 
 ## Project structure
 
 ```
-__pyache__/                # Auto-generated Python cache files
-app/                       # Script for Streamlit dashboard
-data/                      # Raw-,feature-, and predictions data (gitignored)
-fetch_predict_pipeline/    # Fetches live clearance offers from the Salling Group API followed by predictions pipeline
-ml_pipeline/               # Evaluates and retrains new model (if triggered)
-models/                    # Saved champion model artifacts
-outputs/                   # Log outputs from the whole pipeline
-shell/                     # Shell scripts used by cron jobs
+# Folders
+__pycache__/                 # Auto-generated Python cache files
+app/                         # Script for Streamlit dashboard
+data/                        # Raw-,feature-, and predictions data (gitignored)
+fetch_prediction_pipeline/   # Fetches live clearance offers from the Salling Group API followed by predictions pipeline
+ml_pipeline/                 # Evaluates and retrains new model (if triggered)
+models/                      # Saved champion model artifacts
+outputs/                     # Log outputs from the whole pipeline
+shell/                       # Shell scripts used by cron jobs
+
+# Files
+.dockerignore                # Files and folders excluded from the Docker build context
+.env.example                 # Template for required environment variables
+.gitignore                   # Files and folders excluded from Git tracking
+Dockerfile                   # Instructions for building the Docker image
+Pipeline_Diagram.png         # Visual overview of the full pipeline
+README.md                    # This file
+config.py                    # Shared configuration and constants across whole pipeline
+crontab                      # Cron schedule for the fetch-, prediction-, and ML pipelines
+docker-compose.yml           # Defines and orchestrates the db, app, and scheduler services
+requirements.txt             # Python dependencies
 ```
 
 ## Requirements
