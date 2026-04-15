@@ -53,30 +53,4 @@ The scheduler automatically runs fetch + predict every 15 minutes from 06:00 to 
 
 ## Pipeline Diagram
 
-```mermaid
----
-config:
-  theme: neo
-  look: neo
----
-flowchart LR
-    subgraph realtime ["Every 15 min (06:00-00:00)"]
-        A[Salling Group API] --> F([Fetch])
-        F --> B[(MySQL Current & History)]
-        B --> P([Predictions])
-        P --> D[(MySQL App)]
-        D --> E([Streamlit App])
-    end
-
-    subgraph nightly ["Every Night (02:00)"]
-        EV([Evaluate Champion Model]) --> G{Below Threshold?}
-        G -->|Yes| H([Train New Model]) --> I{New Model Better?}
-        I -->|Yes| J([Promote New Model])
-        I -->|No| K([Keep Current Model])
-        G -->|No| K
-        J --> M([Champion Model])
-        K --> M
-    end
-
-    M --> P
-```
+![Pipeline Diagram](Pipeline_Diagram.png)
