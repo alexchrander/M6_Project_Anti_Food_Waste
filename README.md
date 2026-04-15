@@ -1,23 +1,24 @@
 # Anti Food Waste — Aalborg
-Predicts which clearance offers from Salling Group stores are likely to sell before expiry, using a live ML pipeline and a Streamlit dashboard.
+Predicts which clearance offers from Salling Group stores are likely to sell before expiry, using a live fetch-, predict-, and ML pipeline served with a Streamlit dashboard.
 
-**Live app:** [https://app-food-waste.cloud.sdu.dk/](https://app-food-waste.cloud.sdu.dk/)
+**Live App:** [https://app-food-waste.cloud.sdu.dk/](https://app-food-waste.cloud.sdu.dk/)
 
 ## Project structure
 
 ```
-fetch_pipeline/   # Fetches live clearance offers from the Salling Group API and stores them
-ml_pipeline/      # Builds dataset & features, trains and evaluates the model (runs nightly)
-predict_pipeline/ # Loads the trained model and scores current offers
-app/              # Streamlit dashboard
-models/           # Saved model artifacts
-data/             # Raw and feature data (gitignored)
-outputs/          # Prediction outputs (gitignored)
+__pyache__/                # Auto-generated Python cache files
+app/                       # Script for Streamlit dashboard
+data/                      # Raw-,feature-, and predictions data (gitignored)
+fetch_predict_pipeline/    # Fetches live clearance offers from the Salling Group API followed by predictions pipeline
+ml_pipeline/               # Evaluates and retrains new model (if triggered)
+models/                    # Saved champion model artifacts
+outputs/                   # Log outputs from the whole pipeline
+shell/                     # Shell scripts used by cron jobs
 ```
 
 ## Requirements
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
-- A Salling Group Food Waste API token — get one at [developer.sallinggroup.dev](https://developer.sallinggroup.dev/)
+- A Salling Group Food Waste API token — get one at [https://developer.sallinggroup.dev/](https://developer.sallinggroup.dev/catalog/8GAPSQHBBNZD6MEBFG3GGPHWRM)
 
 ## Setup
 
