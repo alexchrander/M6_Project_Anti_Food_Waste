@@ -9,7 +9,7 @@ Predicts which clearance offers from Salling Group stores are likely to sell bef
 # Folders
 __pycache__/                 # Auto-generated Python cache files
 app/                         # Script for Streamlit dashboard
-data/                        # Raw-,feature-, and prediction data (gitignored)
+data/                        # Raw- and feature data
 fetch_prediction_pipeline/   # Fetches live clearance offers from the Salling Group API followed by prediction pipeline
 ml_pipeline/                 # Evaluates and retrains new model (if triggered)
 models/                      # Saved champion model artifacts
@@ -29,7 +29,15 @@ docker-compose.yml           # Defines and orchestrates the db, app, and schedul
 requirements.txt             # Python dependencies
 ```
 
-## Requirements
+### .gitignore file
+```
+*.env                        # Required environment variables
+*mlruns/                     # Saved model artifacts from each retraining
+*data/predictions/           # Prediction data
+```
+
+
+## Prerequisites
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
 - A Salling Group Food Waste API token — get one at [https://developer.sallinggroup.dev/](https://developer.sallinggroup.dev/catalog/8GAPSQHBBNZD6MEBFG3GGPHWRM)
 
