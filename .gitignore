@@ -2,3 +2,5 @@
 *mlruns/
 *data/predictions/
 venv/
+*.sql
+*.db
