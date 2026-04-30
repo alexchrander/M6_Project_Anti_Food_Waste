@@ -4,3 +4,4 @@
 venv/
 *.sql
 *.db
+.ipynb_checkpoints/
