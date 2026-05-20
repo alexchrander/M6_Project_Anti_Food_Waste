@@ -64,23 +64,6 @@ def engineer_category(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def engineer_stock_unit(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add is_weight_based to distinguish kg products from count-based products.
-
-    For kg products (meat dept.), offer_stock is a weight in kg (e.g. 0.977) — not
-    a count of items. This flag lets the model handle the two scales separately.
-    offer_stock_unit is kept as a categorical feature alongside this boolean.
-    """
-    df = df.copy()
-    df["is_weight_based"] = df["offer_stock_unit"] == "kg"
-    log.info(
-        f"is_weight_based: {df['is_weight_based'].sum()} kg-based "
-        f"({df['is_weight_based'].mean():.1%})"
-    )
-    return df
-
-
 def _parse_flow_string(flow_str) -> list:
     """Parse comma-separated customer flow string into a list of 24 floats."""
     try:
@@ -97,18 +80,21 @@ def _parse_flow_string(flow_str) -> list:
 def engineer_customer_flow(df: pd.DataFrame) -> pd.DataFrame:
     """
     Parse store_customer_flow_today (24 comma-separated hourly traffic values) into
-    numeric features. offer_start_time must already be a datetime column.
+    numeric features. offer_start_time and fetched_at must already be datetime columns.
 
     Features:
     - flow_peak_value:      highest traffic value across all hours
     - flow_peak_hour:       hour of day with highest traffic (0-23)
     - flow_avg:             mean traffic during open hours (non-zero hours only)
-    - flow_at_offer_start:  traffic value at the hour the offer went live
+    - flow_at_offer_start:  traffic at the hour the offer went live (static, offer-level)
+    - flow_at_snapshot_hour: traffic at the current snapshot hour (snapshot-level)
+    - flow_remaining_avg:   mean traffic from snapshot hour to end of day
     - flow_evening_share:   share of daily traffic occurring between 17:00-21:00
     """
     df = df.copy()
 
     flow_array = np.array(df["store_customer_flow_today"].apply(_parse_flow_string).tolist())
+    col_idx    = np.arange(len(df))
 
     df["flow_peak_value"] = flow_array.max(axis=1)
     df["flow_peak_hour"]  = flow_array.argmax(axis=1)
@@ -121,21 +107,36 @@ def engineer_customer_flow(df: pd.DataFrame) -> pd.DataFrame:
         0.0,
     )
 
+    # flow_at_offer_start — static per offer, uses offer_start_time
     start_hours = pd.to_datetime(df["offer_start_time"]).dt.hour.clip(0, 23).values
-    df["flow_at_offer_start"] = flow_array[np.arange(len(df)), start_hours]
+    df["flow_at_offer_start"] = flow_array[col_idx, start_hours]
+
+    # flow_at_snapshot_hour — snapshot-level, uses fetched_at
+    snapshot_hours = pd.to_datetime(df["fetched_at"]).dt.hour.clip(0, 23).values
+    df["flow_at_snapshot_hour"] = flow_array[col_idx, snapshot_hours]
+
+    # flow_remaining_avg — mean traffic from snapshot hour to end of day (hour 23)
+    hour_indices     = np.arange(24)
+    remaining_mask   = hour_indices[np.newaxis, :] >= snapshot_hours[:, np.newaxis]
+    remaining_counts = remaining_mask.sum(axis=1).clip(1)
+    df["flow_remaining_avg"] = (flow_array * remaining_mask).sum(axis=1) / remaining_counts
 
     evening_flow = flow_array[:, 17:22].sum(axis=1)  # hours 17, 18, 19, 20, 21
     total_flow   = flow_array.sum(axis=1)
     df["flow_evening_share"] = np.where(total_flow > 0, evening_flow / total_flow, 0.0)
 
-    log.info("Engineered customer flow features (flow_peak_value, flow_peak_hour, flow_avg, flow_at_offer_start, flow_evening_share)")
+    log.info(
+        "Engineered customer flow features "
+        "(flow_peak_value, flow_peak_hour, flow_avg, flow_at_offer_start, "
+        "flow_at_snapshot_hour, flow_remaining_avg, flow_evening_share)"
+    )
     return df
 
 
 def _parse_store_hours(hours_str):
     """
     Parse "HH:MM-HH:MM" into (open_decimal_hour, close_decimal_hour).
-    Returns (None, None) for "closed" or unparseable strings.
+    Returns (0.0, 0.0) for "closed" or unparseable strings.
     """
     try:
         s = str(hours_str).strip().lower()
@@ -156,8 +157,8 @@ def engineer_store_hours(df: pd.DataFrame) -> pd.DataFrame:
 
     Features:
     - store_open_hours:   total hours the store is open today
-    - hours_until_close:  hours from offer_start_time to store closing time
-                          (how much selling time remains when the offer went live)
+    - hours_until_close:  hours from the current snapshot (fetched_at) to store closing time
+                          (how much selling time remains at this snapshot)
     - is_closed_tomorrow: whether the store is closed the following day
     """
     df = df.copy()
@@ -168,11 +169,12 @@ def engineer_store_hours(df: pd.DataFrame) -> pd.DataFrame:
 
     df["store_open_hours"] = (close_hours - open_hours).clip(lower=0)
 
-    start_decimal = (
-        pd.to_datetime(df["offer_start_time"]).dt.hour
-        + pd.to_datetime(df["offer_start_time"]).dt.minute / 60
+    # Use fetched_at (snapshot time) — remaining selling time at this snapshot
+    snapshot_decimal = (
+        pd.to_datetime(df["fetched_at"]).dt.hour
+        + pd.to_datetime(df["fetched_at"]).dt.minute / 60
     )
-    df["hours_until_close"] = (close_hours - start_decimal).clip(lower=0)
+    df["hours_until_close"] = (close_hours - snapshot_decimal).clip(lower=0)
 
     df["is_closed_tomorrow"] = df["store_hours_tomorrow"].apply(
         lambda x: str(x).strip().lower() == "closed"
@@ -185,27 +187,23 @@ def engineer_store_hours(df: pd.DataFrame) -> pd.DataFrame:
 def engineer_time_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Add explicit time-based features using timezone-corrected timestamps.
-    build_dataset.parse_timestamps() shifts offer_start_time/offer_end_time from
-    UTC to CEST (+2h), so the hour extracted here is the correct local hour.
+    build_dataset.parse_timestamps() shifts offer_start_time from UTC to CEST (+2h),
+    so the hour extracted here is the correct local hour.
+
+    hours_until_offer_end and hours_since_start are computed in build_dataset.py
+    since they depend on fetched_at as the snapshot anchor.
 
     Features:
-    - hours_until_offer_end:  hours from first observation until offer_end_time
     - offer_start_dayofweek:  0=Monday ... 6=Sunday
     - offer_start_hour_cest:  local hour of day when the clearance offer started
     """
     df = df.copy()
 
-    offer_end  = pd.to_datetime(df["offer_end_time"])
-    first_seen = pd.to_datetime(df["first_seen"])
-    df["hours_until_offer_end"] = (
-        (offer_end - first_seen).dt.total_seconds() / 3600
-    ).clip(lower=0)
-
     offer_start = pd.to_datetime(df["offer_start_time"])
     df["offer_start_dayofweek"] = offer_start.dt.dayofweek
     df["offer_start_hour_cest"] = offer_start.dt.hour
 
-    log.info("Engineered time features (hours_until_offer_end, offer_start_dayofweek, offer_start_hour_cest)")
+    log.info("Engineered time features (offer_start_dayofweek, offer_start_hour_cest)")
     return df
 
 
@@ -213,9 +211,9 @@ def apply_all(df: pd.DataFrame) -> pd.DataFrame:
     """
     Apply all feature engineering steps in order.
     Importable by predict.py so inference uses the same transformations as training.
+    Requires fetched_at, offer_start_time, and offer_end_time to be present as datetimes.
     """
     df = engineer_category(df)
-    df = engineer_stock_unit(df)
     df = engineer_customer_flow(df)
     df = engineer_store_hours(df)
     df = engineer_time_features(df)
@@ -238,7 +236,7 @@ def main():
     new_cols = [
         c for c in df.columns if c.startswith((
             "category_", "flow_", "store_open", "hours_until",
-            "is_weight", "is_closed", "offer_start_day", "offer_start_hour",
+            "is_closed", "offer_start_day", "offer_start_hour",
         ))
     ]
     log.info(f"New feature columns ({len(new_cols)}): {new_cols}")

@@ -36,14 +36,15 @@ OUTPUTS_DIR     = PROJECT_ROOT / "outputs"
 MLRUNS_DIR      = PROJECT_ROOT / "mlruns"
 
 # ── ML pipeline settings ──────────────────────────────────────────────────────
-# Target — an offer "sells" if sell_through_rate >= this threshold
+# Target — an offer "sells" if sell_through_rate >= this threshold (for initial_stock > 5)
+# For initial_stock 3-5 the label logic uses final_stock <= 1 — see build_dataset.py
 SELL_THRESHOLD = 0.8
 
 # Evaluation — retrain champion if PR AUC drops below this
 PR_AUC_THRESHOLD = 0.85
 
 # Classification — probability above this is predicted as will_sell = 1
-# Default 0.5, but likely needs tuning down given ~2.5% positive rate
+# Tune this from the PR curve in model_dev.ipynb before each pipeline run
 # Used in both evaluate.py (F1/recall/precision metrics) and predict.py (serving)
 PREDICTION_THRESHOLD = 0.5
 
@@ -51,8 +52,8 @@ PREDICTION_THRESHOLD = 0.5
 TEST_SIZE     = 0.2
 RANDOM_STATE  = 42
 
-# Logistic Regression
-MAX_ITER = 1000
+# Logistic Regression baseline
+MAX_ITER = 5000
 
 # LightGBM
 N_ESTIMATORS  = 500
@@ -66,8 +67,8 @@ LEARNING_RATE = 0.05
 #              "categorical" → LabelEncoder
 #              "onehot"      → pd.get_dummies (no ordinal assumption)
 #              "boolean"     → cast to int (0/1)
-#              "datetime"    → extract hour + dayofweek, then drop
-#              "passthrough"  → not used by model (display, joining, source for engineered features, or training-only labels)
+#              "passthrough" → not used by model (display, joining, or source for
+#                              engineered features); dropped before training
 #
 # model:       whether the column is passed to the model as a feature
 # app:         whether the column is written to the app MySQL table (app.py)
@@ -76,69 +77,75 @@ LEARNING_RATE = 0.05
 COLUMNS = {
 
     # ── API ───────────────────────────────────────────────────────────────────
-    "unique_id":                    {"type": "passthrough",  "model": False, "app": True,  "predictions": True},
-    "fetched_at":                   {"type": "datetime",     "model": False, "app": True,  "predictions": True},
-    "product_ean":                  {"type": "categorical", "model": True,  "app": True,  "predictions": True},
-    "product_description":          {"type": "passthrough",  "model": False, "app": True,  "predictions": True},
-    "product_image":                {"type": "passthrough",  "model": False, "app": True,  "predictions": True},
-    "product_category_en":          {"type": "passthrough",  "model": False, "app": False, "predictions": False},
-    "product_category_da":          {"type": "passthrough",  "model": False, "app": False, "predictions": False},
-    "offer_ean":                    {"type": "categorical", "model": True,  "app": True,  "predictions": True},
+    "unique_id":                    {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "fetched_at":                   {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "product_ean":                  {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "product_description":          {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "product_image":                {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "product_category_en":          {"type": "passthrough", "model": False, "app": False, "predictions": False},
+    "product_category_da":          {"type": "passthrough", "model": False, "app": False, "predictions": False},
+    "offer_ean":                    {"type": "passthrough", "model": False, "app": True,  "predictions": True},
     "offer_new_price":              {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "offer_original_price":         {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "offer_discount":               {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "offer_percent_discount":       {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
-    "offer_stock":                  {"type": "numeric",     "model": False, "app": True,  "predictions": True},
-    "offer_stock_unit":             {"type": "categorical", "model": True,  "app": True,  "predictions": True},
-    "offer_start_time":             {"type": "datetime",    "model": True,  "app": True,  "predictions": True},
-    "offer_end_time":               {"type": "datetime",    "model": True,  "app": True,  "predictions": True},
+    "offer_stock":                  {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
+    "offer_stock_unit":             {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "offer_start_time":             {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "offer_end_time":               {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "offer_last_update":            {"type": "passthrough", "model": False, "app": False, "predictions": False},
     "initial_stock":                {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
-    "store_id":                     {"type": "categorical", "model": True,  "app": True,  "predictions": True},
-    "store_name":                   {"type": "passthrough",  "model": False, "app": True,  "predictions": True},
+    "store_id":                     {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "store_name":                   {"type": "categorical", "model": True,  "app": True,  "predictions": True},
     "store_brand":                  {"type": "categorical", "model": True,  "app": True,  "predictions": True},
-    "store_city":                   {"type": "categorical", "model": True,  "app": True,  "predictions": True},
-    "store_street":                 {"type": "passthrough",  "model": False, "app": True,  "predictions": True},
-    "store_zip":                    {"type": "passthrough",  "model": False, "app": True,  "predictions": True},
-    "store_country":                {"type": "passthrough",  "model": False, "app": False, "predictions": True},
-    "store_lat":                    {"type": "passthrough",  "model": False, "app": True,  "predictions": True},
-    "store_lng":                    {"type": "passthrough",  "model": False, "app": True,  "predictions": True},
-    "store_hours_today":            {"type": "passthrough",  "model": False, "app": True, "predictions": True},
-    "store_hours_tomorrow":         {"type": "passthrough",  "model": False, "app": True, "predictions": True},
-    "store_customer_flow_today":    {"type": "passthrough",  "model": False, "app": False, "predictions": False},
-    "store_customer_flow_tomorrow": {"type": "passthrough",  "model": False, "app": False, "predictions": False},
+    "store_city":                   {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "store_street":                 {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "store_zip":                    {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "store_country":                {"type": "passthrough", "model": False, "app": False, "predictions": True},
+    "store_lat":                    {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "store_lng":                    {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "store_hours_today":            {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "store_hours_tomorrow":         {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "store_customer_flow_today":    {"type": "passthrough", "model": False, "app": False, "predictions": False},
+    "store_customer_flow_tomorrow": {"type": "passthrough", "model": False, "app": False, "predictions": False},
     # Training-only labels — never present at inference
-    "final_stock":                  {"type": "passthrough",       "model": False, "app": False, "predictions": False},
-    "sell_through_rate":            {"type": "passthrough",       "model": False, "app": False, "predictions": False},
+    "first_seen":                   {"type": "passthrough", "model": False, "app": False, "predictions": True},
+    "final_stock":                  {"type": "passthrough", "model": False, "app": False, "predictions": False},
+    "sell_through_rate":            {"type": "passthrough", "model": False, "app": False, "predictions": False},
+    "will_sell":                    {"type": "passthrough", "model": False, "app": False, "predictions": False},
 
-    # ── Feature Engineered ────────────────────────────────────────────────────
-    # Lifecycle — computed in build_dataset.py
-    "first_seen":                   {"type": "datetime",    "model": True,  "app": True,  "predictions": True},
-    "last_seen":                    {"type": "datetime",    "model": True,  "app": False, "predictions": True},
-    "hours_on_clearance":           {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
-    "n_snapshots":                  {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
-    "had_overnight_gap":            {"type": "boolean",     "model": True,  "app": True,  "predictions": True},
-    "potential_relabelling":        {"type": "boolean",     "model": True,  "app": False, "predictions": True},
-    # Category — computed in build_features.py from product_category_en/da
+    # ── Snapshot features — computed in build_dataset.py ──────────────────────
+    "offer_total_duration":         {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
+    "hours_since_start":            {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
+    "hours_until_offer_end":        {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
+    "pct_time_elapsed":             {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
+    "stock_drop_so_far":            {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
+    "pct_stock_drop_so_far":        {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
+    "stock_drop_per_hour":          {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
+
+    # ── Category — computed in build_features.py ──────────────────────────────
     "category_level1_en":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
     "category_level2_en":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
-    "category_level1_da":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
-    "category_level2_da":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
-    # Stock — computed in build_features.py from offer_stock_unit
-    "is_weight_based":              {"type": "boolean",     "model": True,  "app": True,  "predictions": True},
-    # Customer flow — computed in build_features.py from store_customer_flow_today
+    "category_level1_da":           {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "category_level2_da":           {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+
+    # ── Customer flow — computed in build_features.py ─────────────────────────
     "flow_peak_hour":               {"type": "onehot",      "model": True,  "app": True,  "predictions": True},
     "flow_peak_value":              {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "flow_avg":                     {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "flow_at_offer_start":          {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
+    "flow_at_snapshot_hour":        {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
+    "flow_remaining_avg":           {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "flow_evening_share":           {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
-    # Store hours — computed in build_features.py from store_hours_today/tomorrow
+
+    # ── Store hours — computed in build_features.py ───────────────────────────
     "store_open_hours":             {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "hours_until_close":            {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "is_closed_tomorrow":           {"type": "boolean",     "model": True,  "app": True,  "predictions": True},
-    # Time — computed in build_features.py from offer_start_time / offer_end_time
+
+    # ── Time — computed in build_features.py ──────────────────────────────────
     "offer_start_dayofweek":        {"type": "onehot",      "model": True,  "app": True,  "predictions": True},
     "offer_start_hour_cest":        {"type": "onehot",      "model": True,  "app": True,  "predictions": True},
-    "hours_until_offer_end":        {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
 }
 
 # ── Derived column lists ──────────────────────────────────────────────────────

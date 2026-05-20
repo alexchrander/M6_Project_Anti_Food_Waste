@@ -8,7 +8,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 sys.path.append(str(Path(__file__).parent.parent / "fetch_prediction_pipeline"))
 
 from store_sql import get_connection
-from config import DATASET_DIR
+from config import DATASET_DIR, SELL_THRESHOLD
 
 import logging
 from datetime import date
@@ -50,101 +50,90 @@ def exclude_active(history: pd.DataFrame, current: pd.DataFrame) -> pd.DataFrame
     return completed
 
 
-def compute_lifecycle_features(completed: pd.DataFrame) -> pd.DataFrame:
+def compute_snapshot_features(completed: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute lifecycle features that are observable for both completed and live offers.
-    Used by both build_dataset.py (training) and predict.py (inference).
-
-    Features computed:
-    - first_seen          → timestamp of first history snapshot
-    - last_seen           → timestamp of last history snapshot
-    - initial_stock       → offer_stock at first snapshot
-    - n_snapshots         → total number of snapshots
-    - hours_on_clearance  → time from offer_start_time (or first_seen) to last_seen
-    - had_overnight_gap   → whether any gap > 4 hours exists between snapshots
+    Produce one row per snapshot with per-snapshot features.
+    Joins offer-level aggregates (initial_stock, final_stock, first_seen)
+    back to all snapshot rows, then computes snapshot-level features.
     """
-    completed = completed.sort_values(["unique_id", "fetched_at"])
+    completed = completed.sort_values(["unique_id", "fetched_at"]).copy()
 
-    first = completed.groupby("unique_id").first().reset_index()
-    last  = completed.groupby("unique_id").last().reset_index()
-
-    # ── n_snapshots + had_overnight_gap ──────────────────────────────────────
-    completed["time_diff_hours"] = (
-        completed.groupby("unique_id")["fetched_at"]
-        .diff()
-        .dt.total_seconds() / 3600
-    )
-    stats = completed.groupby("unique_id").agg(
-        n_snapshots=("fetched_at", "count"),
-        had_overnight_gap=("time_diff_hours", lambda x: x.max() > 4),
+    # Offer-level aggregates joined back to every snapshot row
+    agg = completed.groupby("unique_id").agg(
+        initial_stock=("offer_stock", "first"),
+        final_stock=("offer_stock", "last"),
+        first_seen=("fetched_at", "first"),
     ).reset_index()
 
-    # ── Build base dataset from first snapshot ────────────────────────────────
-    dataset = first[[
-        "unique_id", "store_id", "store_name", "store_brand", "store_city",
-        "store_lat", "store_lng", "store_street", "store_zip", "store_country",
-        "product_ean", "product_description", "product_image", "offer_ean",
-        "offer_original_price", "offer_new_price", "offer_discount",
-        "offer_percent_discount", "offer_stock_unit", "offer_start_time",
-        "offer_end_time", "store_customer_flow_today",
-        "store_hours_today", "store_hours_tomorrow",
-        "product_category_da", "product_category_en",
-    ]].copy()
+    df = completed.merge(agg, on="unique_id", how="left")
 
-    dataset["initial_stock"] = first["offer_stock"]
-    dataset["first_seen"]    = first["fetched_at"]
-    dataset["last_seen"]     = last["fetched_at"].values  # moved from compute_labels
-
-    # ── hours_on_clearance ────────────────────────────────────────────────────
-    # Use offer_start_time if the offer appeared within one polling interval
-    # (15 min) of our first snapshot. Otherwise fall back to first_seen.
-    POLL_INTERVAL   = pd.Timedelta(minutes=15)
-    use_offer_start = (dataset["first_seen"] - dataset["offer_start_time"]) <= POLL_INTERVAL
-    dataset["hours_on_clearance"] = (
-        (last["fetched_at"].values - dataset["offer_start_time"].where(use_offer_start, dataset["first_seen"]))
-        .dt.total_seconds() / 3600
-    )
-
-    # ── Merge metadata ────────────────────────────────────────────────────────
-    dataset = dataset.merge(stats, on="unique_id")
-
-    return dataset
-
-
-def compute_labels(dataset: pd.DataFrame, completed: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute training-only labels that require completed offer data.
-    Not used by predict.py since live offers haven't completed yet.
-
-    Labels computed:
-    - final_stock           → offer_stock at last snapshot
-    - sell_through_rate     → how much of the stock sold
-    - potential_relabelling → same product reappears at same store within 2 hours
-    """
-    dataset = dataset.copy()
-
-    last = completed.groupby("unique_id").last().reset_index()
-    dataset["final_stock"] = last["offer_stock"].values
-
-    # ── sell_through_rate ─────────────────────────────────────────────────────
-    dataset["sell_through_rate"] = (
-        1 - (dataset["final_stock"] / dataset["initial_stock"])
+    # sell_through_rate is offer-level — used only for labeling, not as a model feature
+    df["sell_through_rate"] = (
+        1 - (df["final_stock"] / df["initial_stock"].clip(lower=1))
     ).clip(0, 1)
 
-    # ── potential_relabelling ─────────────────────────────────────────────────
-    # Detects if the same product_ean at the same store reappears within 2 hours
-    # of a previous offer ending — requires completed offer data to compare against
-    offer_timeline = dataset[["unique_id", "store_id", "product_ean", "first_seen", "last_seen"]].copy()
-    merged = offer_timeline.merge(offer_timeline, on=["store_id", "product_ean"], suffixes=("_prev", "_next"))
-    relabelled = merged[
-        (merged["unique_id_prev"] != merged["unique_id_next"]) &
-        (merged["first_seen_next"] > merged["last_seen_prev"]) &
-        (merged["first_seen_next"] - merged["last_seen_prev"] < pd.Timedelta(hours=2))
-    ]
-    relabelled_ids = set(relabelled["unique_id_prev"].unique())
-    dataset["potential_relabelling"] = dataset["unique_id"].isin(relabelled_ids)
+    # ── Per-snapshot features ─────────────────────────────────────────────────
+    df["offer_total_duration"] = (
+        (df["offer_end_time"] - df["offer_start_time"]).dt.total_seconds() / 3600
+    ).clip(lower=0)
 
-    return dataset
+    df["hours_since_start"] = (
+        (df["fetched_at"] - df["first_seen"]).dt.total_seconds() / 3600
+    ).clip(lower=0)
+
+    df["hours_until_offer_end"] = (
+        (df["offer_end_time"] - df["fetched_at"]).dt.total_seconds() / 3600
+    ).clip(lower=0)
+
+    df["pct_time_elapsed"] = (
+        df["hours_since_start"] / df["offer_total_duration"].clip(lower=0.25)
+    ).clip(0, 1)
+
+    df["stock_drop_so_far"] = (df["initial_stock"] - df["offer_stock"]).clip(lower=0)
+
+    df["pct_stock_drop_so_far"] = (
+        df["stock_drop_so_far"] / df["initial_stock"].clip(lower=1)
+    ).clip(0, 1)
+
+    df["stock_drop_per_hour"] = (
+        df["stock_drop_so_far"] / df["hours_since_start"].clip(lower=0.25)
+    )
+
+    log.info(f"Snapshot features computed: {len(df)} rows from {df['unique_id'].nunique()} offers")
+    return df
+
+
+def compute_labels(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Apply dual-threshold labeling to all snapshot rows.
+    Rows that cannot be labeled are set to NaN and dropped before training.
+
+    Exclusions (will_sell = NaN → dropped):
+    - offer_stock_unit == "kg"  (stock is a weight, not an item count)
+    - initial_stock <= 2        (too few items for a reliable label)
+
+    Labels:
+    - initial_stock 3-5:  will_sell = 1 if final_stock <= 1
+    - initial_stock > 5:  will_sell = 1 if sell_through_rate >= SELL_THRESHOLD
+    """
+    df = df.copy()
+    df["will_sell"] = pd.NA
+
+    eligible   = (df["offer_stock_unit"] != "kg") & (df["initial_stock"] > 2)
+    low_stock  = eligible & (df["initial_stock"] <= 5)
+    high_stock = eligible & (df["initial_stock"] > 5)
+
+    df.loc[low_stock,  "will_sell"] = (df.loc[low_stock,  "final_stock"] <= 1).astype(int)
+    df.loc[high_stock, "will_sell"] = (df.loc[high_stock, "sell_through_rate"] >= SELL_THRESHOLD).astype(int)
+
+    before = len(df)
+    df = df.dropna(subset=["will_sell"]).copy()
+    df["will_sell"] = df["will_sell"].astype(int)
+
+    excluded = before - len(df)
+    log.info(f"Dropped {excluded} rows (kg or initial_stock ≤ 2) — {len(df)} rows remain")
+    log.info(f"will_sell — sells: {df['will_sell'].sum()} ({df['will_sell'].mean():.1%}), no sell: {(df['will_sell'] == 0).sum()}")
+    return df
 
 
 def save_dataset(dataset: pd.DataFrame) -> str:
@@ -161,16 +150,13 @@ def main():
     history          = parse_timestamps(history)
     completed        = exclude_active(history, current)
 
-    dataset = compute_lifecycle_features(completed)
-    dataset = compute_labels(dataset, completed)
+    df = compute_snapshot_features(completed)
+    df = compute_labels(df)
 
-    log.info(f"Aggregated dataset: {len(dataset)} rows, {dataset.columns.nunique()} columns")
-    log.info(f"Sell-through rate — mean: {dataset['sell_through_rate'].mean():.3f}, zero: {(dataset['sell_through_rate'] == 0).mean():.1%}")
-    log.info(f"Hours on clearance — mean: {dataset['hours_on_clearance'].mean():.1f}, max: {dataset['hours_on_clearance'].max():.1f}")
-    log.info(f"Overnight gap: {dataset['had_overnight_gap'].mean():.1%} of offers")
-    log.info(f"Potential relabelling: {dataset['potential_relabelling'].sum()} ({dataset['potential_relabelling'].mean():.1%})")
+    log.info(f"Snapshot dataset: {len(df)} rows, {len(df.columns)} columns, {df['unique_id'].nunique()} offers")
+    log.info(f"Positive rate: {df['will_sell'].mean():.1%}")
 
-    save_dataset(dataset)
+    save_dataset(df)
 
 
 if __name__ == "__main__":
