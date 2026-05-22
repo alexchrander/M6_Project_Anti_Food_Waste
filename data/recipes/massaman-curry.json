@@ -1,0 +1,72 @@
+{
+  "title": "Massaman Curry ",
+  "description": "Massaman Curry er en cremet og aromatisk thailandsk kartoffel-curry med kokosmælk, lime og en lille smule sødme der møder varme krydderier og kanel fra mellemøsten. Den er mild, dyb og fuld af smag. ",
+  "servings": "4 personer",
+  "prep_time": "15 min",
+  "cook_time": "",
+  "total_time": "45 min",
+  "ingredients": [
+    "2 spsk olie",
+    "2 løg i skiver",
+    "2 pressede fed hvidløg",
+    "6 spsk massaman karrypasta",
+    "1 tsk garam masala",
+    "2½ dl madlavningsfløde",
+    "1½ dl kokosmælk",
+    "1½ dl grøntsagsbouillon",
+    "800 g kartofler i mindre stykker",
+    "3 gulerødder i skiver",
+    "3 limeblade tørret eller frisk",
+    "1 kanelstang",
+    "Saften fra 1 lime",
+    "2 spsk fiskesauce",
+    "1 dl peanuts, evt. hakkede",
+    "evt. 1 håndfuld korianderblade",
+    "3 dl ris, gerne fuldkorn - koges"
+  ],
+  "instructions": [
+    {
+      "section": null,
+      "steps": [
+        {
+          "step": 1,
+          "text": "Varm olien i en gryde og tilsæt løg, hvidløg, karrypasta og garam masala. Steg ved jævn varme i ca. 5 min. eller til løgene er klare."
+        },
+        {
+          "step": 2,
+          "text": "Tilsæt madlavningsfløde, kokosmælk og boullion og kog op.  "
+        },
+        {
+          "step": 3,
+          "text": "Tilsæt kartofler, gulerødder, limeblade og kanelstang og lad retten simre under låg i ca. 30 min. eller til grøntsagerne er møre."
+        },
+        {
+          "step": 4,
+          "text": "Tilsæt fiskesauce og limesaft og smag til."
+        },
+        {
+          "step": 5,
+          "text": "Server med toppings og ris."
+        }
+      ]
+    }
+  ],
+  "nutrition": {
+    "per": "100g",
+    "calories": "3045 kcal",
+    "protein": "77,1 g",
+    "fat": "117,4 g",
+    "carbohydrates": "416,9 g",
+    "fiber": "51,7 g"
+  },
+  "categories": [
+    "Hovedretter",
+    "Aftensmad"
+  ],
+  "keywords": [
+    "Indisk"
+  ],
+  "url": "https://www.arla.dk/opskrifter/massaman-curry/",
+  "image_url": "https://images.arla.com/recordid/845712C1-3246-4621-A68D178C4D668214/picture.jpg",
+  "scraped_at": "2026-05-22T10:40:39.989510+02:00"
+}

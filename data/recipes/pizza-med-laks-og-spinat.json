@@ -1,0 +1,107 @@
+{
+  "title": "Pizza med laks og spinat",
+  "description": "Skøn pizza med masser af grønt og frisk laks. Pizza med laks og spinat bliver toppet med salte kapers og citron, - elementer som som smager fantastisk sammen med laks og spinat. Bag pizzaerne på forvarmede bageplader og få en dejlig sprød skorpe på både bund og mozarellaost.  Det er ikke så ofte der efterspørges pizza med fisk - men her får du chancen for at få toppoint hos familien, når du serverer hjemmelavet pizza med laks og spinat. Skal det gå stærkt en dag kan du \"snyde\" med en færdigkøbt pizzabund.\n",
+  "servings": "4 personer",
+  "prep_time": "1 time",
+  "cook_time": "",
+  "total_time": "2 timer",
+  "ingredients": [
+    "20 g gær",
+    "3 dl lillefingervarmt vand",
+    "400 g tipo 00 hvedemel",
+    "1 spsk olivenolie",
+    "1 tsk sukker",
+    "½ tsk groft salt",
+    "1 tsk olivenolie",
+    "2 finthakkede løg (ca. 150 g)",
+    "4 finthakkede fed hvidløg",
+    "800 g frisk spinat",
+    "200 g revet mozzarellaost",
+    "400 g laksefilet uden skind - i skiver",
+    "1 dl kapers uden lage",
+    "¾ tsk groft salt",
+    "friskkværnet peber",
+    "1 citron (usprøjtet) i både"
+  ],
+  "instructions": [
+    {
+      "section": "Pizzadej ",
+      "steps": [
+        {
+          "step": 1,
+          "text": "Smuldr gæren og opløs den i vandet. Tilsæt mel, olie, sukker og salt."
+        },
+        {
+          "step": 2,
+          "text": "Ælt dejen blank og smidig i ca. 8 min."
+        },
+        {
+          "step": 3,
+          "text": "Stil dejen tildækket med husholdningsfilm til hævning et lunt sted. Lad dejen hæve i ½ time."
+        },
+        {
+          "step": 4,
+          "text": "Vend dejen ud på et bord og stram den op til 4 boller. Lad dem hæve tildækket med husholdningsfilm i ½ time."
+        }
+      ]
+    },
+    {
+      "section": "Fyld ",
+      "steps": [
+        {
+          "step": 1,
+          "text": "Lad olien blive varm i en sauterpande og svits løg og hvidløg. Tilsæt spinaten og lad den svitse med i ca. 2 min., til den falder sammen. Pres væden fra spinatblandingen i en sigte."
+        }
+      ]
+    },
+    {
+      "section": "Next instruction",
+      "steps": [
+        {
+          "step": 1,
+          "text": "Sæt to bageplader til opvarmning i ovnen."
+        },
+        {
+          "step": 2,
+          "text": "Tryk og form dejen til 4 pizzabunde (ca. 25 cm i diameter). Kom bundene på bagepapir og fordel halvdelen af osten herpå."
+        },
+        {
+          "step": 3,
+          "text": "Kom spinat, laks, kapers, salt, peber og resten af osten på pizzaerne."
+        },
+        {
+          "step": 4,
+          "text": "Træk bagepapiret over på de varme bageplader – og bag dem øverst og nederst i ovnen til pizzaerne er sprøde og fyldet er gyldent i 12-14 min. ved 275° - traditionel ovn."
+        }
+      ]
+    },
+    {
+      "section": "Servering af pizza med laks og spinat",
+      "steps": [
+        {
+          "step": 1,
+          "text": "Server pizzaerne med citronbåde."
+        }
+      ]
+    }
+  ],
+  "nutrition": {
+    "per": "100g",
+    "calories": "128 kcal",
+    "protein": "8,8 g",
+    "fat": "4,5 g",
+    "carbohydrates": "12,8 g",
+    "fiber": "1,3 g"
+  },
+  "categories": [
+    "Hovedretter",
+    "Aftensmad"
+  ],
+  "keywords": [
+    "Spinat",
+    "Pizza"
+  ],
+  "url": "https://www.arla.dk/opskrifter/pizza-med-laks-og-spinat/",
+  "image_url": "https://images.arla.com/recordid/F5AAA7FF-121B-4CAE-926889318314BB78/pizza-med-laks-og-spinat.jpg",
+  "scraped_at": "2026-05-22T10:40:38.470343+02:00"
+}

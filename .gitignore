@@ -2,3 +2,4 @@
 *mlruns/
 *data/predictions/
 venv/
+.DS_Store

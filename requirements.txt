@@ -7,3 +7,5 @@ lightgbm
 mlflow
 scikit-learn
 streamlit
+beautifulsoup4
+lxml
