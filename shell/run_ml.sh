@@ -5,7 +5,7 @@ echo "=== Starting ML Pipeline at $(date) ==="
 cd /work/M6_Project_Anti_Food_Waste
 
 # 2. Activate your virtual environment
-source /work/.venv/bin/activate
+source /work/M6_Project_Anti_Food_Waste/.venv/bin/activate
 
 # 3. Run the ML pipeline
 python3 ml_pipeline/run_ml.py

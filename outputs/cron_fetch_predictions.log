@@ -32573,3 +32573,129 @@ Fetch pipeline complete — 2026-04-26 12:00:03
 2026-04-26 12:00:46,250 — INFO — predict.py complete
 --- Predictions Pipeline finished at Sun Apr 26 12:00:47 CEST 2026 ---
 === Fetching & Predictions Pipeline finished at Sun Apr 26 12:00:47 CEST 2026 ===
+=== Starting Fetching & Predictions Pipeline at Sun May 24 14:00:01 CEST 2026 ===
+--- Fetch Pipeline starting at Sun May 24 14:00:01 CEST 2026 ---
+============================================================
+Anti Food Waste — Fetch Pipeline
+============================================================
+
+[1/3] Fetching offers from Salling API for zip codes: ['9000']...
+Fetched 318 clearance offer(s)
+
+[2/3] Adding unique_id to all rows...
+
+[3/3] Storing data in MySQL...
+Traceback (most recent call last):
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/mysql/connector/network.py", line 764, in open_connection
+    addrinfos = socket.getaddrinfo(
+                ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socket.py", line 963, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno -2] Name or service not known
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/work/M6_Project_Anti_Food_Waste/fetch_prediction_pipeline/run_fetch.py", line 100, in <module>
+    main()
+  File "/work/M6_Project_Anti_Food_Waste/fetch_prediction_pipeline/run_fetch.py", line 72, in main
+    conn = init_db()
+           ^^^^^^^^^
+  File "/work/M6_Project_Anti_Food_Waste/fetch_prediction_pipeline/store_sql.py", line 38, in init_db
+    conn   = get_connection()
+             ^^^^^^^^^^^^^^^^
+  File "/work/M6_Project_Anti_Food_Waste/fetch_prediction_pipeline/store_sql.py", line 20, in get_connection
+    return mysql.connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/mysql/connector/pooling.py", line 323, in connect
+    return MySQLConnection(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/mysql/connector/connection.py", line 185, in __init__
+    self.connect(**kwargs)
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/mysql/connector/abstracts.py", line 1604, in connect
+    self._open_connection()
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/mysql/connector/connection.py", line 411, in _open_connection
+    raise err
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/mysql/connector/connection.py", line 382, in _open_connection
+    self._socket.open_connection()
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/mysql/connector/network.py", line 784, in open_connection
+    raise InterfaceError(
+mysql.connector.errors.InterfaceError: 2003: Can't connect to MySQL server on 'sql-net:3306' (Errno -2: Name or service not known)
+Fetch Pipeline failed — aborting
+=== Starting Fetching & Predictions Pipeline at Sun May 24 14:30:01 CEST 2026 ===
+--- Fetch Pipeline starting at Sun May 24 14:30:01 CEST 2026 ---
+============================================================
+Anti Food Waste — Fetch Pipeline
+============================================================
+
+[1/3] Fetching offers from Salling API for zip codes: ['9000']...
+Fetched 318 clearance offer(s)
+
+[2/3] Adding unique_id to all rows...
+
+[3/3] Storing data in MySQL...
+  [history]  Inserted 318 new row(s)
+  [current]  Replaced with 318 row(s)
+  [run_log]  Row appended to outputs/fetch_log.csv
+
+============================================================
+Fetch pipeline complete — 2026-05-24 14:30:03
+============================================================
+--- Fetch Pipeline finished at Sun May 24 14:30:03 CEST 2026 ---
+--- Predictions Pipeline starting at Sun May 24 14:30:03 CEST 2026 ---
+2026-05-24 14:30:06,934 — INFO — Starting predict.py
+2026-05-24 14:30:06,983 — INFO — package: mysql.connector.plugins
+2026-05-24 14:30:06,984 — INFO — plugin_name: caching_sha2_password
+2026-05-24 14:30:06,984 — INFO — AUTHENTICATION_PLUGIN_CLASS: MySQLCachingSHA2PasswordAuthPlugin
+/work/8961232/M6_Project_Anti_Food_Waste/fetch_prediction_pipeline/predict.py:44: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  current = pd.read_sql("SELECT * FROM current", conn)
+/work/8961232/M6_Project_Anti_Food_Waste/fetch_prediction_pipeline/predict.py:45: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  history = pd.read_sql("SELECT * FROM history", conn)
+=== Starting Fetching & Predictions Pipeline at Sun May 24 14:45:01 CEST 2026 ===
+--- Fetch Pipeline starting at Sun May 24 14:45:01 CEST 2026 ---
+============================================================
+Anti Food Waste — Fetch Pipeline
+============================================================
+
+[1/3] Fetching offers from Salling API for zip codes: ['9000']...
+Fetched 318 clearance offer(s)
+
+[2/3] Adding unique_id to all rows...
+
+[3/3] Storing data in MySQL...
+  [history]  Inserted 318 new row(s)
+  [current]  Replaced with 318 row(s)
+  [run_log]  Row appended to outputs/fetch_log.csv
+
+============================================================
+Fetch pipeline complete — 2026-05-24 14:45:02
+============================================================
+--- Fetch Pipeline finished at Sun May 24 14:45:03 CEST 2026 ---
+--- Predictions Pipeline starting at Sun May 24 14:45:03 CEST 2026 ---
+2026-05-24 14:45:04,561 — INFO — Starting predict.py
+2026-05-24 14:45:04,599 — INFO — package: mysql.connector.plugins
+2026-05-24 14:45:04,599 — INFO — plugin_name: caching_sha2_password
+2026-05-24 14:45:04,599 — INFO — AUTHENTICATION_PLUGIN_CLASS: MySQLCachingSHA2PasswordAuthPlugin
+/work/M6_Project_Anti_Food_Waste/fetch_prediction_pipeline/predict.py:44: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  current = pd.read_sql("SELECT * FROM current", conn)
+/work/M6_Project_Anti_Food_Waste/fetch_prediction_pipeline/predict.py:45: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  history = pd.read_sql("SELECT * FROM history", conn)
+2026-05-24 14:45:19,204 — INFO — Loaded 318 current offers and 622819 history rows
+2026-05-24 14:45:19,303 — INFO — category_level1_en: 6 unique values (37 Unknown = 11.6%)
+2026-05-24 14:45:19,304 — INFO — is_weight_based: 10 kg-based (3.1%)
+2026-05-24 14:45:19,309 — INFO — Engineered customer flow features (flow_peak_value, flow_peak_hour, flow_avg, flow_at_offer_start, flow_evening_share)
+2026-05-24 14:45:19,314 — INFO — Engineered store hours features (store_open_hours, hours_until_close, is_closed_tomorrow)
+2026-05-24 14:45:19,317 — INFO — Engineered time features (hours_until_offer_end, offer_start_dayofweek, offer_start_hour_cest)
+2026-05-24 14:45:20,867 — INFO — Loaded champion model from /work/M6_Project_Anti_Food_Waste/models/model.joblib
+2026-05-24 14:45:21,173 — INFO — Using prediction threshold: 0.5
+2026-05-24 14:45:21,299 — INFO — Saved predictions parquet to /work/M6_Project_Anti_Food_Waste/data/predictions/scored_20260524_1445.parquet
+2026-05-24 14:45:21,300 — INFO — Predicted 318 offers
+2026-05-24 14:45:21,300 — INFO — Will sell:  0 (0.0%)
+2026-05-24 14:45:21,300 — INFO — Won't sell: 318 (100.0%)
+2026-05-24 14:45:21,300 — INFO — Avg sell probability: 0.0003
+2026-05-24 14:45:21,416 — INFO — Wrote 318 rows to MySQL app table
+2026-05-24 14:45:21,417 — INFO — Prediction run logged to /work/M6_Project_Anti_Food_Waste/outputs/predictions_log.csv
+2026-05-24 14:45:21,417 — INFO — predict.py complete
+--- Predictions Pipeline finished at Sun May 24 14:45:22 CEST 2026 ---
+=== Fetching & Predictions Pipeline finished at Sun May 24 14:45:22 CEST 2026 ===

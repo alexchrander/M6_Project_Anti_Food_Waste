@@ -9,3 +9,7 @@ scikit-learn
 streamlit
 beautifulsoup4
 lxml
+pymongo
+chromadb
+google-generativeai
+numpy

@@ -16,11 +16,18 @@ ZIP_CODES = ["9000"]   # Add more zip codes here when ready to expand
 # Read from environment variables — never hardcode credentials!
 # Locally: add them to your .env file
 # UCloud: set directly here since we connect via sql-net internally
-DB_HOST     = os.getenv("DB_HOST",     "sql-net")
+DB_HOST     = os.getenv("DB_HOST")
 DB_PORT     = int(os.getenv("DB_PORT", "3306"))
-DB_NAME     = os.getenv("DB_NAME",     "food_waste")
+DB_NAME     = os.getenv("DB_NAME")
 DB_USER     = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
+
+# ── MongoDB connection settings ───────────────────────────────────────────────
+MONGO_HOST     = os.getenv("MONGO_HOST")
+MONGO_PORT     = int(os.getenv("MONGO_PORT", "27017"))
+MONGO_DB       = os.getenv("MONGO_DB")
+MONGO_USER     = os.getenv("MONGO_USER")
+MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 # All paths are absolute and derived from the project root.
