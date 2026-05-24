@@ -11,5 +11,8 @@ beautifulsoup4
 lxml
 pymongo
 chromadb
-google-generativeai
+google-genai
 numpy
+umap-learn
+plotly
+nbformat

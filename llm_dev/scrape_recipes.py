@@ -11,6 +11,8 @@ Usage:
 
 import argparse
 import json
+import os
+import random
 import re
 import sys
 import time
@@ -21,6 +23,10 @@ from zoneinfo import ZoneInfo
 
 import requests
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+from pymongo import MongoClient
+
+load_dotenv()
 
 SITEMAP_URL = (
     "https://www.arla.dk/sitemap.xml"
@@ -90,6 +96,8 @@ def fetch_sitemap(limit: int) -> list[tuple[str, str]]:
         image_loc = url_el.findtext("image:image/image:loc", namespaces=ns) or ""
         if loc:
             entries.append((loc.strip(), image_loc.strip()))
+
+    random.shuffle(entries)
 
     if limit > 0:
         entries = entries[:limit]
@@ -373,6 +381,15 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    mongo_host = os.getenv("MONGO_HOST", "localhost")
+    mongo_user = os.getenv("MONGO_USER")
+    mongo_password = os.getenv("MONGO_PASSWORD")
+    mongo_db = os.getenv("MONGO_DB", "food_waste")
+    mongo_uri = f"mongodb://{mongo_user}:{mongo_password}@{mongo_host}:27017/"
+
+    mongo_client = MongoClient(mongo_uri)
+    collection = mongo_client[mongo_db]["recipes"]
+
     print(f"Fetching sitemap … (limit={args.limit or 'all'})")
     entries = fetch_sitemap(args.limit)
     total = len(entries)
@@ -388,6 +405,8 @@ def main() -> None:
         try:
             doc = scrape_recipe(url, image_url)
             out_path.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+            doc["_id"] = slug
+            collection.update_one({"_id": slug}, {"$set": doc}, upsert=True)
             print(f"[{i}/{total}] OK  {doc['title'] or slug}")
             ok += 1
         except Exception as exc:
@@ -403,6 +422,7 @@ def main() -> None:
         if i < total:
             time.sleep(args.delay)
 
+    mongo_client.close()
     print(f"\nDone. {ok} scraped, {failed} failed. Files in: {output_dir.resolve()}")
 
 
