@@ -45073,3 +45073,20 @@ Fetch pipeline complete — 2026-05-28 08:45:03
 /work/M6_Project_Anti_Food_Waste/fetch_prediction_pipeline/predict.py:45: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
   history = pd.read_sql("SELECT * FROM history", conn)
 2026-05-28 08:45:20,566 — INFO — Loaded 471 current offers and 706026 history rows
+2026-05-28 08:45:20,836 — INFO — category_level1_da: 7 unique values (41 Unknown = 8.7%)
+2026-05-28 08:45:20,837 — INFO — is_weight_based: 8 kg-based (1.7%)
+2026-05-28 08:45:20,840 — INFO — Engineered customer flow features (flow_peak_value, flow_peak_hour, flow_avg, flow_at_offer_start, flow_evening_share)
+2026-05-28 08:45:20,842 — INFO — Engineered store hours features (store_open_hours, hours_until_close, is_closed_tomorrow)
+2026-05-28 08:45:20,845 — INFO — Engineered time features (hours_until_offer_end, offer_start_dayofweek, offer_start_hour_cest)
+2026-05-28 08:45:21,749 — INFO — Loaded champion model from /work/M6_Project_Anti_Food_Waste/models/model.joblib
+2026-05-28 08:45:21,855 — INFO — Using prediction threshold: 0.5
+2026-05-28 08:45:21,880 — INFO — Saved predictions parquet to /work/M6_Project_Anti_Food_Waste/data/predictions/scored_20260528_0845.parquet
+2026-05-28 08:45:21,881 — INFO — Predicted 471 offers
+2026-05-28 08:45:21,881 — INFO — Will sell:  51 (10.8%)
+2026-05-28 08:45:21,881 — INFO — Won't sell: 420 (89.2%)
+2026-05-28 08:45:21,881 — INFO — Avg sell probability: 0.1257
+2026-05-28 08:45:22,121 — INFO — Wrote 471 rows to MySQL app table
+2026-05-28 08:45:22,123 — INFO — Prediction run logged to /work/M6_Project_Anti_Food_Waste/outputs/predictions_log.csv
+2026-05-28 08:45:22,123 — INFO — predict.py complete
+--- Predictions Pipeline finished at Thu May 28 08:45:22 CEST 2026 ---
+=== Fetching & Predictions Pipeline finished at Thu May 28 08:45:22 CEST 2026 ===
