@@ -15,7 +15,7 @@ from datetime import datetime
 import time
 
 from store_sql import get_connection, init_app_table, store_app_table
-from build_dataset import parse_timestamps, compute_lifecycle_features
+from build_dataset import parse_timestamps
 from build_features import apply_all as apply_feature_engineering
 from preprocessing import drop_columns, preprocess_for_inference
 from config import (
@@ -46,6 +46,61 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     conn.close()
     log.info(f"Loaded {len(current)} current offers and {len(history)} history rows")
     return current, history
+
+# ── Snapshot feature computation ───────────────────────────────────────────────
+
+def compute_snapshot_features_inference(
+    active_history: pd.DataFrame,
+    current: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Compute snapshot-level features for all currently active offers.
+
+    Uses active_history to derive offer-level aggregates (initial_stock, first_seen)
+    and current as the prediction point (live offer_stock, live fetched_at).
+    Returns one row per active offer — mirrors compute_snapshot_features() in
+    build_dataset.py using the same formulas so train and inference are aligned.
+    """
+    active_history = active_history.sort_values(["unique_id", "fetched_at"])
+
+    # Offer-level aggregates derived from snapshot history
+    agg = active_history.groupby("unique_id").agg(
+        initial_stock=("offer_stock", "first"),
+        first_seen=("fetched_at", "first"),
+    ).reset_index()
+
+    # Start from current (live offer data) — merges all offer metadata in one step
+    df = current.merge(agg, on="unique_id", how="left")
+
+    # ── Per-snapshot features (same formulas as build_dataset.py) ─────────────
+    df["offer_total_duration"] = (
+        (df["offer_end_time"] - df["offer_start_time"]).dt.total_seconds() / 3600
+    ).clip(lower=0)
+
+    df["hours_since_start"] = (
+        (df["fetched_at"] - df["first_seen"]).dt.total_seconds() / 3600
+    ).clip(lower=0)
+
+    df["hours_until_offer_end"] = (
+        (df["offer_end_time"] - df["fetched_at"]).dt.total_seconds() / 3600
+    ).clip(lower=0)
+
+    df["pct_time_elapsed"] = (
+        df["hours_since_start"] / df["offer_total_duration"].clip(lower=0.25)
+    ).clip(0, 1)
+
+    df["stock_drop_so_far"] = (df["initial_stock"] - df["offer_stock"]).clip(lower=0)
+
+    df["pct_stock_drop_so_far"] = (
+        df["stock_drop_so_far"] / df["initial_stock"].clip(lower=1)
+    ).clip(0, 1)
+
+    df["stock_drop_per_hour"] = (
+        df["stock_drop_so_far"] / df["hours_since_start"].clip(lower=0.25)
+    )
+
+    log.info(f"Computed snapshot features for {len(df)} active offers")
+    return df
 
 # ── Prediction ─────────────────────────────────────────────────────────────────
 
@@ -201,19 +256,14 @@ def main():
             })
             return
 
+        # Parse API timestamps from UTC to CEST (+2h) for both tables
         history = parse_timestamps(history)
+        current = parse_timestamps(current)
 
         active_ids     = set(current["unique_id"])
         active_history = history[history["unique_id"].isin(active_ids)].copy()
 
-        df = compute_lifecycle_features(active_history)
-
-        # Bring fetched_at and offer_stock from current into df (df is built from history, not current)
-        df = df.merge(current[["unique_id", "fetched_at", "offer_stock"]], on="unique_id", how="left")
-
-        # potential_relabelling — default to False for live offers
-        # (can't detect until offer completes — handled in compute_labels in build_dataset.py)
-        df["potential_relabelling"] = False
+        df = compute_snapshot_features_inference(active_history, current)
 
         # Apply the same feature engineering used during training
         df = apply_feature_engineering(df)
