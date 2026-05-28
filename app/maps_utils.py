@@ -8,6 +8,7 @@ APIs used:
                         Directions API and Distance Matrix API)
 """
 
+import math
 import os
 import requests
 import polyline
@@ -157,3 +158,37 @@ def get_routes(
         })
 
     return results
+
+
+# ── Distance helpers ──────────────────────────────────────────────────────────
+
+def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Straight-line distance in km between two lat/lng points."""
+    R = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlng = math.radians(lng2 - lng1)
+    a = (math.sin(dlat / 2) ** 2
+         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
+         * math.sin(dlng / 2) ** 2)
+    return R * 2 * math.asin(math.sqrt(a))
+
+
+def nearest_stores(
+    user_lat: float,
+    user_lng: float,
+    stores: list[dict],
+    n: int = 3,
+) -> list[dict]:
+    """Return the n closest stores by straight-line distance.
+
+    Each store dict must have 'lat' and 'lng' keys.
+    Returns dicts with 'straight_km' added.
+    """
+    ranked = sorted(
+        stores,
+        key=lambda s: haversine_km(user_lat, user_lng, s["lat"], s["lng"]),
+    )
+    return [
+        {**s, "straight_km": haversine_km(user_lat, user_lng, s["lat"], s["lng"])}
+        for s in ranked[:n]
+    ]

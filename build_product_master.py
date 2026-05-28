@@ -21,7 +21,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 from fetch_prediction_pipeline.store_sql import get_connection, init_products_table
 from ml_pipeline.build_features import engineer_category
-from llm_dev.embeddings import embed_product
+from llm_pipeline.embeddings import embed_product
 
 CHROMA_PATH = "data/chroma_db"
 CHROMA_COLLECTION = "clearance_products"

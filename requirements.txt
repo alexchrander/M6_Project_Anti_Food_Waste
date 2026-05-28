@@ -6,14 +6,15 @@ pyarrow
 lightgbm
 mlflow
 scikit-learn
-streamlit
+streamlit==1.45.1
 beautifulsoup4
 lxml
 pymongo
-chromadb
+chromadb==1.5.9
 google-genai
 numpy
 umap-learn
 plotly
 nbformat
 fpdf2
+polyline

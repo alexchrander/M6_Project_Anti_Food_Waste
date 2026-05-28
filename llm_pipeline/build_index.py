@@ -6,8 +6,8 @@ Reads all recipes from MongoDB, embeds them using Gemini's embedding model
 collection for later retrieval.
 
 Usage:
-    python llm_dev/build_index.py
-    python llm_dev/build_index.py --limit 5
+    python llm_pipeline/build_index.py
+    python llm_pipeline/build_index.py --limit 5
 """
 
 import argparse
