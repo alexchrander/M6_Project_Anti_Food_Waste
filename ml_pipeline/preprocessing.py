@@ -13,7 +13,6 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 from config import (
     FEATURES_DIR, MODELS_DIR,
-    SELL_THRESHOLD,
     DROP_COLS, NUMERIC_COLS, CATEGORICAL_COLS, ONEHOT_COLS, DATETIME_COLS, BOOLEAN_COLS,
 )
 
@@ -66,10 +65,11 @@ def drop_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def create_target(df: pd.DataFrame) -> pd.Series:
     """
-    Create binary target from sell_through_rate.
+    Read the pre-computed will_sell label from build_dataset.py.
     Training only — predict.py does not use this.
+    NaN rows have already been dropped in build_dataset.compute_labels().
     """
-    y = (df["sell_through_rate"] >= SELL_THRESHOLD).astype(int)
+    y = df["will_sell"].astype(int)
     log.info(f"Target — sells: {y.sum()} ({y.mean():.1%}), no sell: {(1-y).sum()} ({(1-y.mean()):.1%})")
     return y
 
@@ -282,22 +282,29 @@ def promote_candidate_artifacts() -> None:
 
 # ── Train/test split ───────────────────────────────────────────────────────────
 
-def split(X: pd.DataFrame, y: pd.Series) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+def get_offer_split_mask(df: pd.DataFrame) -> pd.Series:
     """
-    Time-based train/test split: oldest 80% → train, newest 20% → test.
-    Assumes X is already sorted by last_seen ascending.
-    No random state needed — split is fully deterministic via sort order.
+    Time-based offer-level train/test split.
+    Sort unique offers by first_seen, assign the oldest 80% to train.
+    Returns a boolean Series (True = train) indexed like df.
+
+    All snapshots of a given offer stay on the same side of the split —
+    this prevents the same offer's snapshots from leaking between train and test.
     """
-    cutoff  = int(len(X) * 0.8)
-    X_train = X.iloc[:cutoff].copy()
-    X_test  = X.iloc[cutoff:].copy()
-    y_train = y.iloc[:cutoff].copy()
-    y_test  = y.iloc[cutoff:].copy()
+    offers = (
+        df[["unique_id", "first_seen"]]
+        .drop_duplicates("unique_id")
+        .sort_values("first_seen")
+        .reset_index(drop=True)
+    )
+    cutoff          = int(len(offers) * 0.8)
+    train_offer_ids = set(offers.iloc[:cutoff]["unique_id"])
 
-    log.info(f"Time-based split — Train: {len(X_train)}, Test: {len(X_test)}")
-    log.info(f"Train positive rate: {y_train.mean():.1%}, Test positive rate: {y_test.mean():.1%}")
+    is_train = df["unique_id"].isin(train_offer_ids)
 
-    return X_train, X_test, y_train, y_test
+    log.info(f"Offer-level split — Train offers: {cutoff}, Test offers: {len(offers) - cutoff}")
+    log.info(f"Train snapshots: {is_train.sum()}, Test snapshots: {(~is_train).sum()}")
+    return is_train
 
 
 def save_splits(
@@ -329,20 +336,31 @@ def main():
 
     df = load_latest_features()
 
-    # Sort by last_seen ascending — temporal anchor for time-based split
-    df = df.sort_values("last_seen").reset_index(drop=True)
+    # Sort by first_seen → unique_id → fetched_at so offer groups are contiguous
+    # and temporal order is preserved within each offer
+    df = df.sort_values(["first_seen", "unique_id", "fetched_at"]).reset_index(drop=True)
 
     y = create_target(df)
+
+    # Compute offer-level split mask before dropping columns —
+    # needs unique_id and first_seen which are passthrough (not model features)
+    is_train = get_offer_split_mask(df)
+
     X = drop_columns(df)
 
-    # Encode — fit label encoders + one-hot column names
+    # Encode — fit label encoders + one-hot column names on full dataset
     X, encoders, onehot_columns = encode_features(X)
 
     log.info(f"Feature matrix shape after encoding: {X.shape}")
     log.info(f"Features: {list(X.columns)}")
 
-    # Split — time-based, deterministic
-    X_train, X_test, y_train, y_test = split(X, y)
+    # Apply offer-level split mask
+    X_train = X[is_train].copy()
+    X_test  = X[~is_train].copy()
+    y_train = y[is_train].copy()
+    y_test  = y[~is_train].copy()
+
+    log.info(f"Train positive rate: {y_train.mean():.1%}, Test positive rate: {y_test.mean():.1%}")
 
     # Scale — fit on train only, apply to both
     X_train, X_test, scaler = scale_features(X_train, X_test)

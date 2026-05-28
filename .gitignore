@@ -10,3 +10,6 @@ __pycache__/
 *.pyo
 *data/recipes
 *data/chroma_db
+*.sql
+*.db
+.ipynb_checkpoints/
