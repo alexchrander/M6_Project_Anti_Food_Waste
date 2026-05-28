@@ -92,6 +92,7 @@ COLUMNS = {
     "product_category_en":          {"type": "passthrough", "model": False, "app": False, "predictions": False},
     "product_category_da":          {"type": "passthrough", "model": False, "app": False, "predictions": False},
     "offer_ean":                    {"type": "passthrough", "model": False, "app": True,  "predictions": True},
+    "offer_currency":               {"type": "passthrough", "model": False, "app": True,  "predictions": True},
     "offer_new_price":              {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "offer_original_price":         {"type": "numeric",     "model": True,  "app": True,  "predictions": True},
     "offer_discount":               {"type": "numeric",     "model": True,  "app": True,  "predictions": True},

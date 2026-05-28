@@ -351,6 +351,15 @@ def main():
     # Encode — fit label encoders + one-hot column names on full dataset
     X, encoders, onehot_columns = encode_features(X)
 
+    # Safety check: models expect numeric matrices only.
+    # If anything string-like remains, config.py is missing a column mapping.
+    non_numeric_cols = X.select_dtypes(include=["object", "string"]).columns.tolist()
+    if non_numeric_cols:
+        raise ValueError(
+            "Non-numeric columns remain after preprocessing: "
+            f"{non_numeric_cols}. Add these columns to COLUMNS in config.py."
+        )
+
     log.info(f"Feature matrix shape after encoding: {X.shape}")
     log.info(f"Features: {list(X.columns)}")
 
