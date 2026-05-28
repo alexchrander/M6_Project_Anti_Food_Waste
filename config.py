@@ -128,8 +128,12 @@ COLUMNS = {
     # Category — computed in build_features.py from product_category_en/da
     "category_level1_en":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
     "category_level2_en":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
+    "category_level3_en":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
+    "category_level4_en":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
     "category_level1_da":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
     "category_level2_da":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
+    "category_level3_da":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
+    "category_level4_da":           {"type": "categorical", "model": True,  "app": True,  "predictions": True},
     # Stock — computed in build_features.py from offer_stock_unit
     "is_weight_based":              {"type": "boolean",     "model": True,  "app": True,  "predictions": True},
     # Customer flow — computed in build_features.py from store_customer_flow_today

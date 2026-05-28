@@ -203,6 +203,53 @@ def store_current(conn: connection.MySQLConnection, rows: list[dict], fetched_at
     return len(rows)
 
 
+def init_products_table(conn: connection.MySQLConnection) -> None:
+    """
+    Create the products table if it doesn't exist, then add any missing columns.
+    The ALTER TABLE step ensures existing tables stay in sync if the schema changes.
+    """
+    PRODUCTS_COLS = [
+        ("product_ean",         "VARCHAR(64) PRIMARY KEY"),
+        ("product_description", "TEXT"),
+        ("product_image",       "TEXT"),
+        ("category_level1_da",  "VARCHAR(128)"),
+        ("category_level2_da",  "VARCHAR(128)"),
+        ("category_level3_da",  "VARCHAR(128)"),
+        ("category_level4_da",  "VARCHAR(128)"),
+        ("category_level1_en",  "VARCHAR(128)"),
+        ("category_level2_en",  "VARCHAR(128)"),
+        ("category_level3_en",  "VARCHAR(128)"),
+        ("category_level4_en",  "VARCHAR(128)"),
+        ("offer_stock_unit",    "VARCHAR(16)"),
+        ("first_seen",          "DATETIME"),
+        ("last_seen",           "DATETIME"),
+        ("times_on_clearance",  "INT"),
+        ("updated_at",          "DATETIME"),
+    ]
+
+    cursor = conn.cursor()
+
+    col_defs_sql = ",\n            ".join(f"{col} {typ}" for col, typ in PRODUCTS_COLS)
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS products (
+            {col_defs_sql}
+        )
+    """)
+
+    cursor.execute("""
+        SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+    """)
+    existing_cols = {row[0] for row in cursor.fetchall()}
+
+    for col, typ in PRODUCTS_COLS:
+        if col not in existing_cols and "PRIMARY KEY" not in typ:
+            cursor.execute(f"ALTER TABLE products ADD COLUMN {col} {typ}")
+
+    conn.commit()
+    cursor.close()
+
+
 def init_app_table(conn: connection.MySQLConnection) -> None:
     """
     Create the app table if it doesn't exist, then add any missing columns.

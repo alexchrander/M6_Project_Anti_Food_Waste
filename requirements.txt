@@ -16,3 +16,4 @@ numpy
 umap-learn
 plotly
 nbformat
+fpdf2

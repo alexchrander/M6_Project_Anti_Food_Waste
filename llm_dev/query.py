@@ -2,8 +2,9 @@
 Recipe RAG query pipeline.
 
 Embeds a user query, retrieves the top-3 matching recipes from ChromaDB,
-fetches full recipe docs from MongoDB, fetches current Salling discounted
-products from MySQL, builds a prompt and sends it to the LLM via OpenRouter.
+then for each recipe finds the top-10 semantically aligned clearance products
+from the app table using ingredient-level embeddings. The LLM receives at most
+30 products (10 per recipe), all chosen for relevance.
 
 Usage:
     python llm_dev/query.py "jeg vil gerne have noget italiensk pasta"
@@ -27,17 +28,31 @@ from embeddings import embed_query
 load_dotenv()
 
 CHROMA_PATH = "data/chroma_db"
-CHROMA_COLLECTION = "recipes"
+RECIPE_COLLECTION = "recipes"
+INGREDIENT_COLLECTION = "recipe_ingredients"
+PRODUCT_COLLECTION = "clearance_products"
 PROMPT_PATH = Path(__file__).resolve().parent / "prompt.json"
-TOP_K = 3
+TOP_K_RECIPES = 3
+TOP_K_PRODUCTS = 10       # products per recipe sent to the LLM
+CHROMA_PREFETCH = 50      # candidates fetched from ChromaDB before SQL cross-reference
 LLM_MODEL = "gemini-2.5-flash-lite"
+
+# Category 2 values to exclude from product recommendations.
+# These are non-ingredient categories that are irrelevant or counterproductive
+# (e.g. ready-made meals defeat the purpose of ingredient-based matching).
+EXCLUDED_PRODUCT_CATEGORIES = [
+    "Færdigretter på køl",
+    "Færdigretter på frost",
+    "Færdigretter & supper",
+    "Juice & smoothies",
+    "Helse & kosttilskud",
+]
 
 
 # ── Clients ───────────────────────────────────────────────────────────────────
 
-def get_chroma_collection():
-    client = chromadb.PersistentClient(path=CHROMA_PATH)
-    return client.get_collection(CHROMA_COLLECTION)
+def _chroma_client():
+    return chromadb.PersistentClient(path=CHROMA_PATH)
 
 
 def get_mongo_collection():
@@ -58,24 +73,34 @@ def get_mysql_connection():
 
 # ── Data fetching ─────────────────────────────────────────────────────────────
 
-def retrieve_recipes(user_query: str) -> list[dict]:
-    """Embed query, search ChromaDB, fetch full docs from MongoDB."""
+def retrieve_recipes(user_query: str, n_results: int = TOP_K_RECIPES) -> list[dict]:
+    """Embed user query, find top-n recipes in ChromaDB, fetch full docs from MongoDB."""
     vector = embed_query(user_query)
 
-    chroma = get_chroma_collection()
-    hits = chroma.query(query_embeddings=[vector], n_results=TOP_K)
+    chroma = _chroma_client()
+    hits = chroma.get_collection(RECIPE_COLLECTION).query(
+        query_embeddings=[vector], n_results=n_results
+    )
     slugs = hits["ids"][0]
 
     mongo = get_mongo_collection()
-    return list(mongo.find({"_id": {"$in": slugs}}))
+    # Preserve ranking order from ChromaDB
+    docs = {d["_id"]: d for d in mongo.find({"_id": {"$in": slugs}})}
+    return [docs[s] for s in slugs if s in docs]
 
 
-def fetch_products() -> list[dict]:
-    """Fetch current discounted products from MySQL app table."""
+def fetch_current_products() -> dict[str, dict]:
+    """
+    Fetch all currently active clearance products from the app table,
+    excluding irrelevant categories. Returns a dict keyed by EAN string
+    so ChromaDB results can be cross-referenced instantly.
+    """
     sql = get_mysql_connection()
     cursor = sql.cursor(dictionary=True)
-    cursor.execute("""
+    placeholders = ", ".join(["%s"] * len(EXCLUDED_PRODUCT_CATEGORIES))
+    cursor.execute(f"""
         SELECT
+            product_ean,
             product_description,
             offer_new_price,
             offer_original_price,
@@ -88,16 +113,58 @@ def fetch_products() -> list[dict]:
             offer_end_time
         FROM app
         WHERE offer_end_time > NOW()
-        ORDER BY offer_percent_discount DESC
-    """)
-    products = cursor.fetchall()
+          AND category_level2_da NOT IN ({placeholders})
+    """, EXCLUDED_PRODUCT_CATEGORIES)
+    rows = cursor.fetchall()
     sql.close()
-    return products
+    return {str(row["product_ean"]): row for row in rows}
+
+
+def get_top_products_for_recipe(
+    recipe_slug: str,
+    current_products: dict[str, dict],
+    chroma_client,
+) -> list[tuple[float, dict]]:
+    """
+    Find the top-10 clearance products most semantically aligned with a recipe's
+    ingredient list.
+
+    Steps:
+      1. Fetch the recipe's ingredient-only embedding from recipe_ingredients.
+      2. Query clearance_products ChromaDB for the CHROMA_PREFETCH nearest neighbours.
+      3. Cross-reference with current_products (active SQL rows) and keep only matches.
+      4. Return up to TOP_K_PRODUCTS as (similarity_score, product_row) tuples.
+    """
+    ing_col = chroma_client.get_collection(INGREDIENT_COLLECTION)
+    result = ing_col.get(ids=[recipe_slug], include=["embeddings"])
+    if not result["ids"]:
+        return []
+
+    ingredient_vector = result["embeddings"][0]
+
+    prod_col = chroma_client.get_collection(PRODUCT_COLLECTION)
+    hits = prod_col.query(
+        query_embeddings=[ingredient_vector],
+        n_results=CHROMA_PREFETCH,
+        include=["distances"],
+    )
+
+    matched = []
+    for ean, dist in zip(hits["ids"][0], hits["distances"][0]):
+        ean_str = str(ean)
+        if ean_str in current_products:
+            similarity = 1 - dist
+            matched.append((similarity, current_products[ean_str]))
+        if len(matched) == TOP_K_PRODUCTS:
+            break
+
+    return matched
 
 
 # ── Formatting ────────────────────────────────────────────────────────────────
 
 def format_recipes(recipes: list[dict]) -> str:
+    """Full recipe text for CLI display (includes instructions)."""
     parts = []
     for i, r in enumerate(recipes, start=1):
         instructions = []
@@ -116,16 +183,41 @@ def format_recipes(recipes: list[dict]) -> str:
     return "\n\n".join(parts)
 
 
-def format_products(products: list[dict]) -> str:
-    lines = []
-    for p in products:
-        end = p["offer_end_time"].strftime("%d. %b") if p.get("offer_end_time") else "?"
-        lines.append(
-            f"- {p['product_description']} | {p['category_level2_da']} | "
-            f"{p['offer_new_price']:.2f} kr ({p['offer_percent_discount']:.0f}% rabat) | "
-            f"{p['store_name']}, {p['store_city']} | Tilbud slutter: {end}"
+def format_recipes_for_llm(recipes: list[dict], desired_servings: int = 4) -> str:
+    """Compact recipe text for LLM prompt (title, servings, ingredients only)."""
+    parts = []
+    for i, r in enumerate(recipes, start=1):
+        original = r.get("servings", "4")
+        parts.append(
+            f"Opskrift {i}: {r.get('title', '')}\n"
+            f"Portioner: {original} -> skal skaleres til {desired_servings} portioner\n"
+            f"Ingredienser: {', '.join(r.get('ingredients', []))}"
         )
-    return "\n".join(lines)
+    return "\n\n".join(parts)
+
+
+def format_products_per_recipe(
+    recipes: list[dict],
+    products_per_recipe: list[list[tuple[float, dict]]],
+) -> str:
+    """Format per-recipe product lists into a single prompt section."""
+    sections = []
+    for i, (recipe, products) in enumerate(zip(recipes, products_per_recipe), start=1):
+        title = recipe.get("title", f"Opskrift {i}")
+        if not products:
+            sections.append(f"Tilbud til opskrift {i} ({title}):\n  (ingen matchende tilbud fundet)")
+            continue
+        lines = [f"Tilbud til opskrift {i} ({title}):"]
+        for similarity, p in products:
+            end = p["offer_end_time"].strftime("%d. %b") if p.get("offer_end_time") else "?"
+            lines.append(
+                f"  - {p['product_description']} | {p['category_level2_da']} | "
+                f"{p['offer_new_price']:.2f} kr ({p['offer_percent_discount']:.0f}% rabat) | "
+                f"{p['store_name']}, {p['store_city']} | Tilbud slutter: {end} "
+                f"[match: {similarity:.2f}]"
+            )
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
 
 
 # ── Prompt ────────────────────────────────────────────────────────────────────
@@ -144,7 +236,10 @@ def call_llm(system: str, user: str) -> str:
     response = client.models.generate_content(
         model=LLM_MODEL,
         contents=user,
-        config=types.GenerateContentConfig(system_instruction=system),
+        config=types.GenerateContentConfig(
+            system_instruction=system,
+            response_mime_type="application/json",
+        ),
     )
     return response.text
 
@@ -162,18 +257,28 @@ def main() -> None:
     print("Retrieving recipes...")
     recipes = retrieve_recipes(user_query)
 
-    print("Fetching products...")
-    products = fetch_products()
+    print("Fetching current clearance products from SQL...")
+    current_products = fetch_current_products()
+    print(f"  {len(current_products)} active products available.\n")
+
+    print("Finding semantically aligned products per recipe...")
+    chroma = _chroma_client()
+    products_per_recipe = []
+    for recipe in recipes:
+        slug = recipe["_id"]
+        matches = get_top_products_for_recipe(slug, current_products, chroma)
+        print(f"  {recipe.get('title', slug)}: {len(matches)} products matched")
+        products_per_recipe.append(matches)
 
     system, user_template = load_prompt()
 
     user_message = user_template.format(
         query=user_query,
         recipes=format_recipes(recipes),
-        products=format_products(products),
+        products=format_products_per_recipe(recipes, products_per_recipe),
     )
 
-    print("Calling LLM...\n")
+    print("\nCalling LLM...\n")
     answer = call_llm(system, user_message)
     print(answer)
 

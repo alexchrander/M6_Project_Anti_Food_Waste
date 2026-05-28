@@ -53,12 +53,20 @@ def engineer_category(df: pd.DataFrame) -> pd.DataFrame:
 
     df["category_level1_en"] = split_level(df["product_category_en"], 0)
     df["category_level2_en"] = split_level(df["product_category_en"], 1)
+    df["category_level3_en"] = split_level(df["product_category_en"], 2)
+    df["category_level4_en"] = split_level(df["product_category_en"], 3)
     df["category_level1_da"] = split_level(df["product_category_da"], 0)
     df["category_level2_da"] = split_level(df["product_category_da"], 1)
+    df["category_level3_da"] = split_level(df["product_category_da"], 2)
+    df["category_level4_da"] = split_level(df["product_category_da"], 3)
 
-    n_unknown = (df["category_level1_en"] == "Unknown").sum()
+    # Malformed strings cause level4 to repeat level1 — treat those as Unknown
+    df.loc[df["category_level4_da"] == df["category_level1_da"], "category_level4_da"] = "Unknown"
+    df.loc[df["category_level4_en"] == df["category_level1_en"], "category_level4_en"] = "Unknown"
+
+    n_unknown = (df["category_level1_da"] == "Unknown").sum()
     log.info(
-        f"category_level1_en: {df['category_level1_en'].nunique()} unique values "
+        f"category_level1_da: {df['category_level1_da'].nunique()} unique values "
         f"({n_unknown} Unknown = {n_unknown / len(df):.1%})"
     )
     return df
