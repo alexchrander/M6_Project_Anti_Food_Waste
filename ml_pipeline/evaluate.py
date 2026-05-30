@@ -24,7 +24,7 @@ from config import (
     FEATURES_DIR, MODELS_DIR, MLRUNS_DIR,
     SELL_THRESHOLD, PR_AUC_THRESHOLD, PREDICTION_THRESHOLD,
 )
-from preprocessing import promote_candidate_artifacts
+from preprocessing import promote_candidate_artifacts, drop_columns, preprocess_for_inference, get_offer_split_mask
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 # ── Data loading ───────────────────────────────────────────────────────────────
 
 def load_test_split() -> tuple[pd.DataFrame, pd.Series]:
-    """Load the most recent test split from data/features/."""
+    """Load the most recent test split from data/features/. Used by --mode compare."""
     files = glob.glob(str(FEATURES_DIR / "test_*.parquet"))
     if not files:
         raise FileNotFoundError(f"No test parquet files found in {FEATURES_DIR}")
@@ -49,6 +49,39 @@ def load_test_split() -> tuple[pd.DataFrame, pd.Series]:
 
     log.info(f"Test size: {len(X)}, Positive rate: {y.mean():.1%}")
     return X, y
+
+
+def load_test_for_champion_check() -> tuple[pd.DataFrame, pd.Series]:
+    """
+    Build the test set for --mode check using the champion's canonical preprocessing
+    artifacts (encoder.joblib, onehot.joblib, scaler.joblib).
+
+    Loads the raw features parquet, applies the same time-based offer-level split used
+    during training, then preprocesses via preprocess_for_inference() — identical to the
+    serving pipeline in predict.py. Unseen categorical values map to "Unknown"; unseen
+    one-hot categories are dropped and missing ones are filled with 0, so the feature
+    count always matches the champion regardless of new data arriving since last training.
+    """
+    files = glob.glob(str(FEATURES_DIR / "features_*.parquet"))
+    if not files:
+        raise FileNotFoundError(f"No features parquet found in {FEATURES_DIR}")
+
+    latest = sorted(files)[-1]
+    log.info(f"Loading features for champion check: {latest}")
+    df = pd.read_parquet(latest)
+
+    if "will_sell" not in df.columns:
+        raise ValueError("features parquet is missing 'will_sell' — run build_dataset.py first")
+
+    is_train = get_offer_split_mask(df)
+    test_df  = df[~is_train].copy()
+
+    y_test = test_df["will_sell"].astype(int)
+    X_test = drop_columns(test_df)
+    X_test = preprocess_for_inference(X_test)
+
+    log.info(f"Test size: {len(X_test)}, Positive rate: {y_test.mean():.1%}")
+    return X_test, y_test
 
 # ── Evaluation ─────────────────────────────────────────────────────────────────
 
@@ -214,8 +247,6 @@ def main():
     )
     args = parser.parse_args()
 
-    X_test, y_test = load_test_split()
-
     # ── Mode 1: check ──────────────────────────────────────────────────────────
     if args.mode == "check":
         champion, meta = load_champion()
@@ -224,6 +255,7 @@ def main():
             log.info("No champion exists yet — retraining needed")
             sys.exit(1)
 
+        X_test, y_test = load_test_for_champion_check()
         metrics = evaluate_model(champion, X_test, y_test, "Champion")
         refresh_champion_score(meta, metrics)
 
@@ -241,6 +273,7 @@ def main():
         is_bootstrap    = champion is None
         champion_pr_auc = champion_meta["pr_auc"] if champion_meta else 0.0
 
+        X_test, y_test = load_test_split()
         new_models = load_latest_mlflow_runs()
         results    = {}
         for model_type, entry in new_models.items():

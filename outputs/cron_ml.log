@@ -2065,3 +2065,254 @@ ValueError: could not convert string to float: 'Toast Breads'
 2026-05-28 02:01:01,008 — ERROR — train failed — aborting pipeline
 2026-05-28 02:01:01,010 — INFO — Pipeline run logged to /work/M6_Project_Anti_Food_Waste/outputs/ml_log.csv
 === ML Pipeline finished ===
+=== Starting ML Pipeline at Fri May 29 02:00:01 CEST 2026 ===
+2026-05-29 02:00:03,384 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/build_dataset.py
+2026-05-29 02:00:04,189 — INFO — package: mysql.connector.plugins
+2026-05-29 02:00:04,190 — INFO — plugin_name: caching_sha2_password
+2026-05-29 02:00:04,190 — INFO — AUTHENTICATION_PLUGIN_CLASS: MySQLCachingSHA2PasswordAuthPlugin
+/work/M6_Project_Anti_Food_Waste/ml_pipeline/build_dataset.py:26: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  history = pd.read_sql("SELECT * FROM history", conn)
+/work/M6_Project_Anti_Food_Waste/ml_pipeline/build_dataset.py:27: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  current = pd.read_sql("SELECT * FROM current", conn)
+2026-05-29 02:00:19,988 — INFO — Loaded 739638 history rows and 482 current rows
+2026-05-29 02:00:20,529 — INFO — Total unique offers: 10444
+2026-05-29 02:00:20,529 — INFO — Excluded (still active): 482
+2026-05-29 02:00:20,597 — INFO — Completed offers: 9962
+2026-05-29 02:00:22,021 — INFO — Snapshot features computed: 705022 rows from 9962 offers
+2026-05-29 02:00:23,063 — INFO — Dropped 218368 rows (kg or initial_stock ≤ 2) — 486654 rows remain
+2026-05-29 02:00:23,064 — INFO — will_sell — sells: 199440 (41.0%), no sell: 287214
+2026-05-29 02:00:23,261 — INFO — Snapshot dataset: 486654 rows, 43 columns, 5204 offers
+2026-05-29 02:00:23,261 — INFO — Positive rate: 41.0%
+2026-05-29 02:00:25,030 — INFO — Saved dataset to /work/M6_Project_Anti_Food_Waste/data/dataset/labelled_offers_20260529.parquet
+2026-05-29 02:00:25,978 — INFO — Exit code: 0
+2026-05-29 02:00:25,978 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/build_features.py
+2026-05-29 02:00:26,448 — INFO — Loading dataset: /work/M6_Project_Anti_Food_Waste/data/dataset/labelled_offers_20260529.parquet
+2026-05-29 02:00:27,674 — INFO — category_level1_da: 8 unique values (34370 Unknown = 7.1%)
+/work/M6_Project_Anti_Food_Waste/ml_pipeline/build_features.py:134: RuntimeWarning: invalid value encountered in divide
+  df["flow_evening_share"] = np.where(total_flow > 0, evening_flow / total_flow, 0.0)
+2026-05-29 02:00:29,813 — INFO — Engineered customer flow features (flow_peak_value, flow_peak_hour, flow_avg, flow_at_offer_start, flow_at_snapshot_hour, flow_remaining_avg, flow_evening_share)
+2026-05-29 02:00:30,337 — INFO — Engineered store hours features (store_open_hours, hours_until_close, is_closed_tomorrow)
+2026-05-29 02:00:30,436 — INFO — Engineered time features (offer_start_dayofweek, offer_start_hour_cest)
+2026-05-29 02:00:30,459 — INFO — New feature columns (21): ['hours_until_offer_end', 'category_level1_en', 'category_level2_en', 'category_level3_en', 'category_level4_en', 'category_level1_da', 'category_level2_da', 'category_level3_da', 'category_level4_da', 'flow_peak_value', 'flow_peak_hour', 'flow_avg', 'flow_at_offer_start', 'flow_at_snapshot_hour', 'flow_remaining_avg', 'flow_evening_share', 'store_open_hours', 'hours_until_close', 'is_closed_tomorrow', 'offer_start_dayofweek', 'offer_start_hour_cest']
+2026-05-29 02:00:31,260 — INFO — Saved features to /work/M6_Project_Anti_Food_Waste/data/features/features_20260529.parquet (486654 rows, 63 columns)
+2026-05-29 02:00:31,383 — INFO — Exit code: 0
+2026-05-29 02:00:31,384 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/preprocessing.py
+2026-05-29 02:00:32,553 — INFO — Loading features: /work/M6_Project_Anti_Food_Waste/data/features/features_20260529.parquet
+2026-05-29 02:00:32,942 — INFO — Target — sells: 199440 (41.0%), no sell: 287214 (59.0%)
+2026-05-29 02:00:32,956 — INFO — Offer-level split — Train offers: 4163, Test offers: 1041
+2026-05-29 02:00:32,957 — INFO — Train snapshots: 421667, Test snapshots: 64987
+2026-05-29 02:00:33,896 — INFO — One-hot encoded 3 columns → 38 dummy columns
+2026-05-29 02:00:33,900 — INFO — Feature matrix shape after encoding: (486654, 68)
+2026-05-29 02:00:33,900 — INFO — Features: ['offer_original_price', 'offer_new_price', 'offer_discount', 'offer_percent_discount', 'offer_stock', 'store_name', 'store_brand', 'initial_stock', 'offer_total_duration', 'hours_since_start', 'hours_until_offer_end', 'pct_time_elapsed', 'stock_drop_so_far', 'pct_stock_drop_so_far', 'stock_drop_per_hour', 'category_level1_en', 'category_level2_en', 'category_level3_en', 'category_level4_en', 'category_level3_da', 'category_level4_da', 'flow_peak_value', 'flow_avg', 'flow_at_offer_start', 'flow_at_snapshot_hour', 'flow_remaining_avg', 'flow_evening_share', 'store_open_hours', 'hours_until_close', 'is_closed_tomorrow', 'flow_peak_hour_0', 'flow_peak_hour_11', 'flow_peak_hour_12', 'flow_peak_hour_13', 'flow_peak_hour_14', 'flow_peak_hour_15', 'flow_peak_hour_16', 'flow_peak_hour_17', 'flow_peak_hour_18', 'flow_peak_hour_21', 'flow_peak_hour_22', 'offer_start_dayofweek_0', 'offer_start_dayofweek_1', 'offer_start_dayofweek_2', 'offer_start_dayofweek_3', 'offer_start_dayofweek_4', 'offer_start_dayofweek_5', 'offer_start_dayofweek_6', 'offer_start_hour_cest_3', 'offer_start_hour_cest_4', 'offer_start_hour_cest_5', 'offer_start_hour_cest_6', 'offer_start_hour_cest_7', 'offer_start_hour_cest_8', 'offer_start_hour_cest_9', 'offer_start_hour_cest_10', 'offer_start_hour_cest_11', 'offer_start_hour_cest_12', 'offer_start_hour_cest_13', 'offer_start_hour_cest_14', 'offer_start_hour_cest_15', 'offer_start_hour_cest_16', 'offer_start_hour_cest_17', 'offer_start_hour_cest_18', 'offer_start_hour_cest_19', 'offer_start_hour_cest_20', 'offer_start_hour_cest_21', 'offer_start_hour_cest_22']
+2026-05-29 02:00:33,973 — INFO — Train positive rate: 41.7%, Test positive rate: 36.5%
+2026-05-29 02:00:34,056 — INFO — Saved candidate preprocessing artifacts (encoder, onehot, scaler)
+2026-05-29 02:00:34,327 — INFO — Saved train split to /work/M6_Project_Anti_Food_Waste/data/features/train_20260529.parquet (421667 rows)
+2026-05-29 02:00:34,327 — INFO — Saved test split  to /work/M6_Project_Anti_Food_Waste/data/features/test_20260529.parquet  (64987 rows)
+2026-05-29 02:00:34,491 — INFO — Exit code: 0
+2026-05-29 02:00:34,491 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/evaluate.py --mode check
+2026-05-29 02:00:36,714 — INFO — Loading test split: /work/M6_Project_Anti_Food_Waste/data/features/test_20260529.parquet
+2026-05-29 02:00:36,738 — INFO — Test size: 64987, Positive rate: 36.5%
+2026-05-29 02:00:37,552 — INFO — Loaded champion: lightgbm | run aa056319... | trained on 2026-05-28 (PR AUC: 0.7625)
+[LightGBM] [Fatal] The number of features in data (68) is not the same as it was in training data (67).
+You can set ``predict_disable_shape_check=true`` to discard this error, but please be aware what you are doing.
+Traceback (most recent call last):
+  File "/work/M6_Project_Anti_Food_Waste/ml_pipeline/evaluate.py", line 273, in <module>
+    main()
+  File "/work/M6_Project_Anti_Food_Waste/ml_pipeline/evaluate.py", line 227, in main
+    metrics = evaluate_model(champion, X_test, y_test, "Champion")
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/M6_Project_Anti_Food_Waste/ml_pipeline/evaluate.py", line 61, in evaluate_model
+    y_prob = model.predict_proba(X_test)[:, 1]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/lightgbm/sklearn.py", line 1627, in predict_proba
+    result = super().predict(
+             ^^^^^^^^^^^^^^^^
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/lightgbm/sklearn.py", line 1144, in predict
+    return self._Booster.predict(  # type: ignore[union-attr]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/lightgbm/basic.py", line 4767, in predict
+    return predictor.predict(
+           ^^^^^^^^^^^^^^^^^^
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/lightgbm/basic.py", line 1204, in predict
+    preds, nrow = self.__pred_for_np2d(
+                  ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/lightgbm/basic.py", line 1361, in __pred_for_np2d
+    return self.__inner_predict_np2d(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/lightgbm/basic.py", line 1307, in __inner_predict_np2d
+    _safe_call(
+  File "/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/lightgbm/basic.py", line 313, in _safe_call
+    raise LightGBMError(_LIB.LGBM_GetLastError().decode("utf-8"))
+lightgbm.basic.LightGBMError: The number of features in data (68) is not the same as it was in training data (67).
+You can set ``predict_disable_shape_check=true`` to discard this error, but please be aware what you are doing.
+2026-05-29 02:00:38,178 — INFO — Exit code: 1
+2026-05-29 02:00:38,178 — INFO — Retraining triggered
+2026-05-29 02:00:38,178 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/train.py
+/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/mlflow/tracking/_tracking_service/utils.py:184: FutureWarning: The filesystem tracking backend (e.g., './mlruns') is deprecated as of February 2026. Consider transitioning to a database backend (e.g., 'sqlite:///mlflow.db') to take advantage of the latest MLflow features. See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store for migration guidance.
+  return FileStore(store_uri, store_uri)
+2026-05-29 02:00:40,290 — INFO — Loading train split: /work/M6_Project_Anti_Food_Waste/data/features/train_20260529.parquet
+2026-05-29 02:00:40,423 — INFO — Train size: 421667, Positive rate: 41.7%
+2026/05/29 02:01:59 WARNING mlflow.models.model: `artifact_path` is deprecated. Please use `name` instead.
+2026/05/29 02:01:59 WARNING mlflow.sklearn: Saving scikit-learn models in the pickle or cloudpickle format requires exercising caution because these formats rely on Python's object serialization mechanism, which can execute arbitrary code during deserialization. The recommended safe alternative is the 'skops' format. For more information, see: https://scikit-learn.org/stable/model_persistence.html
+2026-05-29 02:02:04,524 — INFO — Logistic Regression logged to MLflow as logistic_regression_20260529
+2026/05/29 02:02:08 WARNING mlflow.models.model: `artifact_path` is deprecated. Please use `name` instead.
+2026/05/29 02:02:08 WARNING mlflow.lightgbm: Saving the models in the pickle or cloudpickle format requires exercising caution because these formats rely on Python's object serialization mechanism, which can execute arbitrary code during deserialization. The recommended safe alternative is the 'skops' format. For more information, see: https://scikit-learn.org/stable/model_persistence.html
+2026-05-29 02:02:12,318 — INFO — LightGBM logged to MLflow as lightgbm_20260529
+2026-05-29 02:02:12,320 — INFO — Training complete — run evaluate.py to pick the champion
+2026-05-29 02:02:12,704 — INFO — Exit code: 0
+2026-05-29 02:02:12,704 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/evaluate.py --mode compare
+2026-05-29 02:02:14,626 — INFO — Loading test split: /work/M6_Project_Anti_Food_Waste/data/features/test_20260529.parquet
+2026-05-29 02:02:14,651 — INFO — Test size: 64987, Positive rate: 36.5%
+2026-05-29 02:02:15,252 — INFO — Loaded champion: lightgbm | run aa056319... | trained on 2026-05-28 (PR AUC: 0.7625)
+/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/mlflow/tracking/_tracking_service/utils.py:184: FutureWarning: The filesystem tracking backend (e.g., './mlruns') is deprecated as of February 2026. Consider transitioning to a database backend (e.g., 'sqlite:///mlflow.db') to take advantage of the latest MLflow features. See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store for migration guidance.
+  return FileStore(store_uri, store_uri)
+Downloading artifacts:   0%|          | 0/1 [00:00<?, ?it/s]Downloading artifacts:   0%|          | 0/1 [00:00<?, ?it/s]
+Downloading artifacts:   0%|          | 0/5 [00:00<?, ?it/s]Downloading artifacts:  20%|██        | 1/5 [00:00<00:00, 1216.80it/s]Downloading artifacts:  40%|████      | 2/5 [00:00<00:00, 1775.74it/s]Downloading artifacts:  60%|██████    | 3/5 [00:00<00:00, 2080.16it/s]Downloading artifacts:  80%|████████  | 4/5 [00:00<00:00, 2359.33it/s]Downloading artifacts: 100%|██████████| 5/5 [00:00<00:00, 2789.14it/s]Downloading artifacts: 100%|██████████| 5/5 [00:00<00:00, 2711.60it/s]
+2026-05-29 02:02:15,750 — INFO — Loaded lightgbm from run 1194abf6...
+Downloading artifacts:   0%|          | 0/1 [00:00<?, ?it/s]Downloading artifacts:   0%|          | 0/1 [00:00<?, ?it/s]
+Downloading artifacts:   0%|          | 0/5 [00:00<?, ?it/s]Downloading artifacts:  20%|██        | 1/5 [00:00<00:00, 3021.83it/s]Downloading artifacts:  40%|████      | 2/5 [00:00<00:00, 2581.11it/s]Downloading artifacts:  60%|██████    | 3/5 [00:00<00:00, 2286.55it/s]Downloading artifacts:  80%|████████  | 4/5 [00:00<00:00, 2625.54it/s]Downloading artifacts: 100%|██████████| 5/5 [00:00<00:00, 3138.51it/s]Downloading artifacts: 100%|██████████| 5/5 [00:00<00:00, 3047.74it/s]
+2026-05-29 02:02:16,114 — INFO — Loaded logistic_regression from run 8dac48e7...
+2026-05-29 02:02:16,330 — INFO — 
+lightgbm metrics (threshold=0.5):
+2026-05-29 02:02:16,330 — INFO —   PR AUC    (primary):  0.7757
+2026-05-29 02:02:16,330 — INFO —   F1                :  0.6352
+2026-05-29 02:02:16,330 — INFO —   Recall            :  0.6362
+2026-05-29 02:02:16,330 — INFO —   Precision         :  0.6341
+2026-05-29 02:02:16,330 — INFO —   Log Loss          :  0.4915
+2026-05-29 02:02:16,482 — INFO — 
+logistic_regression metrics (threshold=0.5):
+2026-05-29 02:02:16,482 — INFO —   PR AUC    (primary):  0.7149
+2026-05-29 02:02:16,482 — INFO —   F1                :  0.6328
+2026-05-29 02:02:16,482 — INFO —   Recall            :  0.6427
+2026-05-29 02:02:16,482 — INFO —   Precision         :  0.6231
+2026-05-29 02:02:16,482 — INFO —   Log Loss          :  0.5539
+2026-05-29 02:02:16,482 — INFO — 
+Best new model: lightgbm (PR AUC: 0.7757)
+2026-05-29 02:02:16,482 — INFO — New model (PR AUC: 0.7757) beats champion (PR AUC: 0.7625) — promoting
+2026-05-29 02:02:16,493 — INFO — Saved champion model to /work/M6_Project_Anti_Food_Waste/models/model.joblib
+2026-05-29 02:02:16,495 — INFO — Promoted candidate_encoder.joblib → encoder.joblib
+2026-05-29 02:02:16,496 — INFO — Promoted candidate_onehot.joblib → onehot.joblib
+2026-05-29 02:02:16,498 — INFO — Promoted candidate_scaler.joblib → scaler.joblib
+2026-05-29 02:02:16,498 — INFO — Updated champion.json: {'model_type': 'lightgbm', 'mlflow_run_id': '1194abf647bf4434a74bf4796a5c77c7', 'trained_on': '2026-05-29', 'sell_threshold': 0.8, 'pr_auc_threshold': 0.85, 'prediction_threshold': 0.5, 'pr_auc': 0.7757, 'f1': 0.6352, 'recall': 0.6362, 'precision': 0.6341, 'log_loss': 0.4915}
+2026-05-29 02:02:16,853 — INFO — Exit code: 0
+2026-05-29 02:02:16,932 — INFO — Pipeline run logged to /work/M6_Project_Anti_Food_Waste/outputs/ml_log.csv
+2026-05-29 02:02:16,933 — INFO — Deleted candidate artifact: candidate_encoder.joblib
+2026-05-29 02:02:16,934 — INFO — Deleted candidate artifact: candidate_onehot.joblib
+2026-05-29 02:02:16,935 — INFO — Deleted candidate artifact: candidate_scaler.joblib
+2026-05-29 02:02:16,935 — INFO — Pipeline completed successfully in 134s
+=== ML Pipeline finished ===
+=== Starting ML Pipeline at Sat May 30 02:00:01 CEST 2026 ===
+2026-05-30 02:00:03,111 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/build_dataset.py
+2026-05-30 02:00:03,777 — INFO — package: mysql.connector.plugins
+2026-05-30 02:00:03,777 — INFO — plugin_name: caching_sha2_password
+2026-05-30 02:00:03,777 — INFO — AUTHENTICATION_PLUGIN_CLASS: MySQLCachingSHA2PasswordAuthPlugin
+/work/M6_Project_Anti_Food_Waste/ml_pipeline/build_dataset.py:26: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  history = pd.read_sql("SELECT * FROM history", conn)
+/work/M6_Project_Anti_Food_Waste/ml_pipeline/build_dataset.py:27: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  current = pd.read_sql("SELECT * FROM current", conn)
+2026-05-30 02:00:20,400 — INFO — Loaded 777838 history rows and 530 current rows
+2026-05-30 02:00:20,980 — INFO — Total unique offers: 10912
+2026-05-30 02:00:20,980 — INFO — Excluded (still active): 530
+2026-05-30 02:00:21,051 — INFO — Completed offers: 10382
+2026-05-30 02:00:22,556 — INFO — Snapshot features computed: 738954 rows from 10382 offers
+2026-05-30 02:00:23,718 — INFO — Dropped 226019 rows (kg or initial_stock ≤ 2) — 512935 rows remain
+2026-05-30 02:00:23,720 — INFO — will_sell — sells: 211065 (41.1%), no sell: 301870
+2026-05-30 02:00:23,926 — INFO — Snapshot dataset: 512935 rows, 43 columns, 5476 offers
+2026-05-30 02:00:23,926 — INFO — Positive rate: 41.1%
+2026-05-30 02:00:25,779 — INFO — Saved dataset to /work/M6_Project_Anti_Food_Waste/data/dataset/labelled_offers_20260530.parquet
+2026-05-30 02:00:26,795 — INFO — Exit code: 0
+2026-05-30 02:00:26,795 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/build_features.py
+2026-05-30 02:00:27,321 — INFO — Loading dataset: /work/M6_Project_Anti_Food_Waste/data/dataset/labelled_offers_20260530.parquet
+2026-05-30 02:00:28,598 — INFO — category_level1_da: 8 unique values (36396 Unknown = 7.1%)
+/work/M6_Project_Anti_Food_Waste/ml_pipeline/build_features.py:134: RuntimeWarning: invalid value encountered in divide
+  df["flow_evening_share"] = np.where(total_flow > 0, evening_flow / total_flow, 0.0)
+2026-05-30 02:00:30,913 — INFO — Engineered customer flow features (flow_peak_value, flow_peak_hour, flow_avg, flow_at_offer_start, flow_at_snapshot_hour, flow_remaining_avg, flow_evening_share)
+2026-05-30 02:00:31,464 — INFO — Engineered store hours features (store_open_hours, hours_until_close, is_closed_tomorrow)
+2026-05-30 02:00:31,566 — INFO — Engineered time features (offer_start_dayofweek, offer_start_hour_cest)
+2026-05-30 02:00:31,591 — INFO — New feature columns (21): ['hours_until_offer_end', 'category_level1_en', 'category_level2_en', 'category_level3_en', 'category_level4_en', 'category_level1_da', 'category_level2_da', 'category_level3_da', 'category_level4_da', 'flow_peak_value', 'flow_peak_hour', 'flow_avg', 'flow_at_offer_start', 'flow_at_snapshot_hour', 'flow_remaining_avg', 'flow_evening_share', 'store_open_hours', 'hours_until_close', 'is_closed_tomorrow', 'offer_start_dayofweek', 'offer_start_hour_cest']
+2026-05-30 02:00:32,412 — INFO — Saved features to /work/M6_Project_Anti_Food_Waste/data/features/features_20260530.parquet (512935 rows, 63 columns)
+2026-05-30 02:00:32,545 — INFO — Exit code: 0
+2026-05-30 02:00:32,545 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/evaluate.py --mode check
+2026-05-30 02:00:35,757 — INFO — Loaded champion: lightgbm | run 1194abf6... | trained on 2026-05-29 (PR AUC: 0.7611)
+2026-05-30 02:00:35,760 — INFO — Loading features for champion check: /work/M6_Project_Anti_Food_Waste/data/features/features_20260530.parquet
+2026-05-30 02:00:36,192 — INFO — Offer-level split — Train offers: 4380, Test offers: 1096
+2026-05-30 02:00:36,192 — INFO — Train snapshots: 434291, Test snapshots: 78644
+2026-05-30 02:00:36,402 — INFO — Test size: 78644, Positive rate: 40.1%
+2026-05-30 02:00:36,714 — INFO — 
+Champion metrics (threshold=0.5):
+2026-05-30 02:00:36,714 — INFO —   PR AUC    (primary):  0.7989
+2026-05-30 02:00:36,714 — INFO —   F1                :  0.6534
+2026-05-30 02:00:36,714 — INFO —   Recall            :  0.5972
+2026-05-30 02:00:36,714 — INFO —   Precision         :  0.7212
+2026-05-30 02:00:36,714 — INFO —   Log Loss          :  0.4956
+2026-05-30 02:00:36,715 — INFO — Refreshed champion.json with today's winning scores
+2026-05-30 02:00:36,715 — INFO — Champion PR AUC 0.7989 below threshold 0.85 — retraining needed
+2026-05-30 02:00:37,066 — INFO — Exit code: 1
+2026-05-30 02:00:37,066 — INFO — Retraining triggered
+2026-05-30 02:00:37,066 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/preprocessing.py
+2026-05-30 02:00:38,246 — INFO — Loading features: /work/M6_Project_Anti_Food_Waste/data/features/features_20260530.parquet
+2026-05-30 02:00:38,645 — INFO — Target — sells: 211065 (41.1%), no sell: 301870 (58.9%)
+2026-05-30 02:00:38,660 — INFO — Offer-level split — Train offers: 4380, Test offers: 1096
+2026-05-30 02:00:38,660 — INFO — Train snapshots: 434289, Test snapshots: 78646
+2026-05-30 02:00:39,686 — INFO — One-hot encoded 3 columns → 38 dummy columns
+2026-05-30 02:00:39,689 — INFO — Feature matrix shape after encoding: (512935, 68)
+2026-05-30 02:00:39,689 — INFO — Features: ['offer_original_price', 'offer_new_price', 'offer_discount', 'offer_percent_discount', 'offer_stock', 'store_name', 'store_brand', 'initial_stock', 'offer_total_duration', 'hours_since_start', 'hours_until_offer_end', 'pct_time_elapsed', 'stock_drop_so_far', 'pct_stock_drop_so_far', 'stock_drop_per_hour', 'category_level1_en', 'category_level2_en', 'category_level3_en', 'category_level4_en', 'category_level3_da', 'category_level4_da', 'flow_peak_value', 'flow_avg', 'flow_at_offer_start', 'flow_at_snapshot_hour', 'flow_remaining_avg', 'flow_evening_share', 'store_open_hours', 'hours_until_close', 'is_closed_tomorrow', 'flow_peak_hour_0', 'flow_peak_hour_11', 'flow_peak_hour_12', 'flow_peak_hour_13', 'flow_peak_hour_14', 'flow_peak_hour_15', 'flow_peak_hour_16', 'flow_peak_hour_17', 'flow_peak_hour_18', 'flow_peak_hour_21', 'flow_peak_hour_22', 'offer_start_dayofweek_0', 'offer_start_dayofweek_1', 'offer_start_dayofweek_2', 'offer_start_dayofweek_3', 'offer_start_dayofweek_4', 'offer_start_dayofweek_5', 'offer_start_dayofweek_6', 'offer_start_hour_cest_3', 'offer_start_hour_cest_4', 'offer_start_hour_cest_5', 'offer_start_hour_cest_6', 'offer_start_hour_cest_7', 'offer_start_hour_cest_8', 'offer_start_hour_cest_9', 'offer_start_hour_cest_10', 'offer_start_hour_cest_11', 'offer_start_hour_cest_12', 'offer_start_hour_cest_13', 'offer_start_hour_cest_14', 'offer_start_hour_cest_15', 'offer_start_hour_cest_16', 'offer_start_hour_cest_17', 'offer_start_hour_cest_18', 'offer_start_hour_cest_19', 'offer_start_hour_cest_20', 'offer_start_hour_cest_21', 'offer_start_hour_cest_22']
+2026-05-30 02:00:39,766 — INFO — Train positive rate: 41.3%, Test positive rate: 40.1%
+2026-05-30 02:00:39,851 — INFO — Saved candidate preprocessing artifacts (encoder, onehot, scaler)
+2026-05-30 02:00:40,128 — INFO — Saved train split to /work/M6_Project_Anti_Food_Waste/data/features/train_20260530.parquet (434289 rows)
+2026-05-30 02:00:40,128 — INFO — Saved test split  to /work/M6_Project_Anti_Food_Waste/data/features/test_20260530.parquet  (78646 rows)
+2026-05-30 02:00:40,302 — INFO — Exit code: 0
+2026-05-30 02:00:40,302 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/train.py
+/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/mlflow/tracking/_tracking_service/utils.py:184: FutureWarning: The filesystem tracking backend (e.g., './mlruns') is deprecated as of February 2026. Consider transitioning to a database backend (e.g., 'sqlite:///mlflow.db') to take advantage of the latest MLflow features. See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store for migration guidance.
+  return FileStore(store_uri, store_uri)
+2026-05-30 02:00:42,352 — INFO — Loading train split: /work/M6_Project_Anti_Food_Waste/data/features/train_20260530.parquet
+2026-05-30 02:00:42,485 — INFO — Train size: 434289, Positive rate: 41.3%
+2026/05/30 02:02:03 WARNING mlflow.models.model: `artifact_path` is deprecated. Please use `name` instead.
+2026/05/30 02:02:03 WARNING mlflow.sklearn: Saving scikit-learn models in the pickle or cloudpickle format requires exercising caution because these formats rely on Python's object serialization mechanism, which can execute arbitrary code during deserialization. The recommended safe alternative is the 'skops' format. For more information, see: https://scikit-learn.org/stable/model_persistence.html
+2026-05-30 02:02:09,967 — INFO — Logistic Regression logged to MLflow as logistic_regression_20260530
+2026/05/30 02:02:13 WARNING mlflow.models.model: `artifact_path` is deprecated. Please use `name` instead.
+2026/05/30 02:02:13 WARNING mlflow.lightgbm: Saving the models in the pickle or cloudpickle format requires exercising caution because these formats rely on Python's object serialization mechanism, which can execute arbitrary code during deserialization. The recommended safe alternative is the 'skops' format. For more information, see: https://scikit-learn.org/stable/model_persistence.html
+2026-05-30 02:02:17,907 — INFO — LightGBM logged to MLflow as lightgbm_20260530
+2026-05-30 02:02:17,909 — INFO — Training complete — run evaluate.py to pick the champion
+2026-05-30 02:02:18,330 — INFO — Exit code: 0
+2026-05-30 02:02:18,330 — INFO — Running: /work/M6_Project_Anti_Food_Waste/.venv/bin/python3 /work/M6_Project_Anti_Food_Waste/ml_pipeline/evaluate.py --mode compare
+2026-05-30 02:02:21,050 — INFO — Loaded champion: lightgbm | run 1194abf6... | trained on 2026-05-29 (PR AUC: 0.7989)
+2026-05-30 02:02:21,058 — INFO — Loading test split: /work/M6_Project_Anti_Food_Waste/data/features/test_20260530.parquet
+2026-05-30 02:02:21,263 — INFO — Test size: 78646, Positive rate: 40.1%
+/work/M6_Project_Anti_Food_Waste/.venv/lib/python3.12/site-packages/mlflow/tracking/_tracking_service/utils.py:184: FutureWarning: The filesystem tracking backend (e.g., './mlruns') is deprecated as of February 2026. Consider transitioning to a database backend (e.g., 'sqlite:///mlflow.db') to take advantage of the latest MLflow features. See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store for migration guidance.
+  return FileStore(store_uri, store_uri)
+Downloading artifacts:   0%|          | 0/1 [00:00<?, ?it/s]Downloading artifacts:   0%|          | 0/1 [00:00<?, ?it/s]
+Downloading artifacts:   0%|          | 0/5 [00:00<?, ?it/s]Downloading artifacts:  20%|██        | 1/5 [00:00<00:00, 1071.62it/s]Downloading artifacts:  40%|████      | 2/5 [00:00<00:00, 1459.40it/s]Downloading artifacts:  60%|██████    | 3/5 [00:00<00:00, 1717.33it/s]Downloading artifacts:  80%|████████  | 4/5 [00:00<00:00, 1951.97it/s]Downloading artifacts: 100%|██████████| 5/5 [00:00<00:00, 2261.08it/s]Downloading artifacts: 100%|██████████| 5/5 [00:00<00:00, 2207.06it/s]
+2026-05-30 02:02:21,850 — INFO — Loaded lightgbm from run 8f87e6f7...
+Downloading artifacts:   0%|          | 0/1 [00:00<?, ?it/s]Downloading artifacts:   0%|          | 0/1 [00:00<?, ?it/s]
+Downloading artifacts:   0%|          | 0/5 [00:00<?, ?it/s]Downloading artifacts:  20%|██        | 1/5 [00:00<00:00, 1332.37it/s]Downloading artifacts:  40%|████      | 2/5 [00:00<00:00, 1875.81it/s]Downloading artifacts:  60%|██████    | 3/5 [00:00<00:00, 1817.03it/s]Downloading artifacts:  80%|████████  | 4/5 [00:00<00:00, 2093.23it/s]Downloading artifacts: 100%|██████████| 5/5 [00:00<00:00, 2570.35it/s]Downloading artifacts: 100%|██████████| 5/5 [00:00<00:00, 2525.17it/s]
+2026-05-30 02:02:22,265 — INFO — Loaded logistic_regression from run bfbf81cd...
+2026-05-30 02:02:22,517 — INFO — 
+lightgbm metrics (threshold=0.5):
+2026-05-30 02:02:22,517 — INFO —   PR AUC    (primary):  0.8015
+2026-05-30 02:02:22,518 — INFO —   F1                :  0.6655
+2026-05-30 02:02:22,518 — INFO —   Recall            :  0.6126
+2026-05-30 02:02:22,518 — INFO —   Precision         :  0.7283
+2026-05-30 02:02:22,518 — INFO —   Log Loss          :  0.4908
+2026-05-30 02:02:22,690 — INFO — 
+logistic_regression metrics (threshold=0.5):
+2026-05-30 02:02:22,690 — INFO —   PR AUC    (primary):  0.7370
+2026-05-30 02:02:22,690 — INFO —   F1                :  0.6516
+2026-05-30 02:02:22,690 — INFO —   Recall            :  0.6440
+2026-05-30 02:02:22,690 — INFO —   Precision         :  0.6595
+2026-05-30 02:02:22,690 — INFO —   Log Loss          :  0.5486
+2026-05-30 02:02:22,690 — INFO — 
+Best new model: lightgbm (PR AUC: 0.8015)
+2026-05-30 02:02:22,690 — INFO — New model (PR AUC: 0.8015) beats champion (PR AUC: 0.7989) — promoting
+2026-05-30 02:02:22,702 — INFO — Saved champion model to /work/M6_Project_Anti_Food_Waste/models/model.joblib
+2026-05-30 02:02:22,703 — INFO — Promoted candidate_encoder.joblib → encoder.joblib
+2026-05-30 02:02:22,704 — INFO — Promoted candidate_onehot.joblib → onehot.joblib
+2026-05-30 02:02:22,705 — INFO — Promoted candidate_scaler.joblib → scaler.joblib
+2026-05-30 02:02:22,706 — INFO — Updated champion.json: {'model_type': 'lightgbm', 'mlflow_run_id': '8f87e6f7fdfe4a7898912c3a64978e23', 'trained_on': '2026-05-30', 'sell_threshold': 0.8, 'pr_auc_threshold': 0.85, 'prediction_threshold': 0.5, 'pr_auc': 0.8015, 'f1': 0.6655, 'recall': 0.6126, 'precision': 0.7283, 'log_loss': 0.4908}
+2026-05-30 02:02:23,222 — INFO — Exit code: 0
+2026-05-30 02:02:23,288 — INFO — Pipeline run logged to /work/M6_Project_Anti_Food_Waste/outputs/ml_log.csv
+2026-05-30 02:02:23,288 — INFO — Deleted candidate artifact: candidate_encoder.joblib
+2026-05-30 02:02:23,289 — INFO — Deleted candidate artifact: candidate_onehot.joblib
+2026-05-30 02:02:23,290 — INFO — Deleted candidate artifact: candidate_scaler.joblib
+2026-05-30 02:02:23,290 — INFO — Pipeline completed successfully in 140s
+=== ML Pipeline finished ===

@@ -12,7 +12,12 @@ echo "--- Fetch Pipeline starting at $(date) ---"
 python3 fetch_prediction_pipeline/run_fetch.py || { echo "Fetch Pipeline failed — aborting"; exit 1; }
 echo "--- Fetch Pipeline finished at $(date) ---"
 
-# 4. Run the Predictions Pipeline
+# 4. Run the Build Product Master
+echo "--- Build Product Master starting at $(date) ---"
+python3 fetch_prediction_pipeline/build_product_master.py || { echo "Build Product Master failed — aborting"; exit 1; }
+echo "--- Build Product Master finished at $(date) ---"
+
+# 5. Run the Predictions Pipeline
 echo "--- Predictions Pipeline starting at $(date) ---"
 python3 fetch_prediction_pipeline/predict.py || { echo "Predictions Pipeline failed"; exit 1; }
 echo "--- Predictions Pipeline finished at $(date) ---"

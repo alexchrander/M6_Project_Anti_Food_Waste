@@ -156,15 +156,14 @@ def main():
     if run_step("build_dataset.py") != 0:
         abort(timestamp, start_time, retrain_triggered, "build_dataset")
 
-    # ── Step 1.5: build_features.py ────────────────────────────────────────────
+    # ── Step 2: build_features.py ─────────────────────────────────────────────
     if run_step("build_features.py") != 0:
         abort(timestamp, start_time, retrain_triggered, "build_features")
 
-    # ── Step 2: preprocessing.py ───────────────────────────────────────────────
-    if run_step("preprocessing.py") != 0:
-        abort(timestamp, start_time, retrain_triggered, "preprocessing")
-
     # ── Step 3: evaluate.py --mode check ──────────────────────────────────────
+    # Uses the champion's canonical preprocessing artifacts (encoder/onehot/scaler)
+    # on the raw features file — same pipeline as predict.py. preprocessing.py is
+    # intentionally deferred to here so it only runs when retraining is needed.
     code = run_step("evaluate.py", ["--mode", "check"])
 
     if code == 0:
@@ -174,11 +173,15 @@ def main():
         log.info("Retraining triggered")
         retrain_triggered = True
 
-        # ── Step 4: train.py ───────────────────────────────────────────────────
+        # ── Step 4: preprocessing.py ───────────────────────────────────────────
+        if run_step("preprocessing.py") != 0:
+            abort(timestamp, start_time, retrain_triggered, "preprocessing")
+
+        # ── Step 5: train.py ───────────────────────────────────────────────────
         if run_step("train.py") != 0:
             abort(timestamp, start_time, retrain_triggered, "train")
 
-        # ── Step 5: evaluate.py --mode compare ────────────────────────────────
+        # ── Step 6: evaluate.py --mode compare ────────────────────────────────
         if run_step("evaluate.py", ["--mode", "compare"]) != 0:
             abort(timestamp, start_time, retrain_triggered, "evaluate_compare")
 

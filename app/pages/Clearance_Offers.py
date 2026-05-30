@@ -343,7 +343,7 @@ def main() -> None:
         st.divider()
         sort_by = st.radio(
             "Sort by",
-            options=["Sell probability", "Savings (kr)", "Savings (%)", "Closest distance"],
+            options=["Sell probability", "Savings (kr)", "Savings (%)", "Closest Stores"],
             horizontal=False,
         )
 
@@ -410,7 +410,7 @@ def main() -> None:
         df = df.sort_values("offer_discount", ascending=False).reset_index(drop=True)
     elif sort_by == "Savings (%)":
         df = df.sort_values("offer_percent_discount", ascending=False).reset_index(drop=True)
-    elif sort_by == "Closest distance" and user_location:
+    elif sort_by == "Closest Stores" and user_location:
         sort_col = "distance_to_user" if dist_unit == "km" else "time_to_user"
         df = df.sort_values(sort_col, ascending=True).reset_index(drop=True)
     else:
