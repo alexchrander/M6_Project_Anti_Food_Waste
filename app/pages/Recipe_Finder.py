@@ -1,4 +1,8 @@
+import csv
+import json
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -13,7 +17,8 @@ from query import (
     fetch_active_products,
     run_recipe_pipeline,
 )
-from maps_utils import geocode, haversine_km
+from maps_utils import geocode, haversine_km, routes_cached
+from config import OUTPUTS_DIR
 
 # ── Page config ───────────────────────────────────────────────────────────────
 
@@ -176,20 +181,50 @@ def _render_instructions(instructions: list[dict]) -> None:
             st.markdown(f"{step['step']}. {step['text']}")
 
 
+# ── Logging ───────────────────────────────────────────────────────────────────
+
+def _active_prompt_id() -> str:
+    try:
+        with open(PROJECT_ROOT / "rag_pipeline" / "prompt.json", encoding="utf-8") as f:
+            return json.load(f)["active"]
+    except Exception:
+        return ""
+
+
+def log_run(summary: dict) -> None:
+    OUTPUTS_DIR.mkdir(exist_ok=True)
+    log_path = OUTPUTS_DIR / "recipe_log.csv"
+    file_exists = log_path.is_file()
+    with open(log_path, mode="a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=summary.keys())
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(summary)
+
+
 # ── Main UI ───────────────────────────────────────────────────────────────────
 
 def main() -> None:
     st.title("🍽️ Recipe Finder")
     st.markdown(
-        "Tell us what you feel like eating and we'll suggest **3 matching recipes** "
-        "— with ingredients swapped for today's discounted offers where possible."
+        "Tell us what you feel like eating and we'll suggest **3 matching recipes**"
+        "— automatically substituting ingredients with **clearance offers from Salling Group "
+        "stores in Aalborg (9000)** to help reduce food waste."
+    )
+
+    st.info(
+        "**This app only covers Aalborg (postal code 9000).**  "
+        "Offers are fetched exclusively from **Salling Group** stores "
+        "(Netto, Bilka & Føtex) located in Aalborg.  \n"
+        "Please enter a **9000 Aalborg address** below to find nearby stores.",
+        icon="📍",
     )
 
     # ── Shared location input ──────────────────────────────────────────────────
     loc_col, btn_col = st.columns([5, 1])
     with loc_col:
         address_input = st.text_input(
-            "📍 Your location",
+            "📍 Your location (9000 Aalborg)",
             value=st.session_state.get("user_address", ""),
             placeholder="e.g. Boulevarden 13, 9000 Aalborg or Nørregade 10, 9000 Aalborg",
             label_visibility="collapsed",
@@ -200,8 +235,17 @@ def main() -> None:
     if locate_btn and address_input:
         try:
             loc = geocode_cached(address_input)
-            st.session_state["user_address"]  = address_input
-            st.session_state["user_location"] = loc
+            formatted = loc.get("formatted_address", "")
+            if "9000" not in formatted.lower() and "aalborg" not in formatted.lower() \
+               and "9000" not in address_input.lower() and "aalborg" not in address_input.lower():
+                st.warning(
+                    "That address doesn't appear to be in Aalborg (9000). "
+                    "This app only covers stores in Aalborg - please enter a 9000 Aalborg address."
+                )
+                st.session_state.pop("user_location", None)
+            else:
+                st.session_state["user_address"]  = address_input
+                st.session_state["user_location"] = loc
         except Exception as exc:
             st.warning(f"Could not find that address: {exc}")
             st.session_state.pop("user_location", None)
@@ -280,37 +324,128 @@ def main() -> None:
 
     # ── Run pipeline ───────────────────────────────────────────────────────────
     if find_btn:
+        user_location = st.session_state.get("user_location")
+        dist_unit     = st.session_state.get("dist_unit", "km")
+        max_dist      = st.session_state.get("max_dist_km" if dist_unit == "km" else "max_dist_min", None)
+        location_filter_applied = bool(user_location and max_dist is not None)
+
+        start_time = time.time()
+        summary = {
+            "timestamp":                  datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+            "query":                      user_query,
+            "duration_seconds":           None,
+            "active_products_in_pool":    None,
+            "nearby_stores":              "",
+            "recipes_found":              None,
+            "recipe_1_title":             "",
+            "recipe_2_title":             "",
+            "recipe_3_title":             "",
+            "prompt_id":                             _active_prompt_id(),
+            "recipe_1_substitutions_made":           None,
+            "recipe_1_candidate_eans":               "",
+            "recipe_1_candidate_descriptions":       "",
+            "recipe_2_substitutions_made":           None,
+            "recipe_2_candidate_eans":               "",
+            "recipe_2_candidate_descriptions":       "",
+            "recipe_3_substitutions_made":           None,
+            "recipe_3_candidate_eans":               "",
+            "recipe_3_candidate_descriptions":       "",
+            "location_filter_applied":    location_filter_applied,
+            "dist_unit":                  dist_unit if location_filter_applied else "",
+            "max_dist":                   max_dist if location_filter_applied else "",
+            "user_address":               address_input if location_filter_applied else "",
+            "max_minutes":                max_minutes if max_minutes is not None else "",
+            "pipeline_status":            "failed",
+            "failed_step":                "",
+        }
+
         with st.spinner("Finding recipes and checking today's offers…"):
             try:
                 active_products = cached_fetch_active_products()
 
                 # Filter to nearby stores if location + distance are set
-                user_location = st.session_state.get("user_location")
-                dist_unit     = st.session_state.get("dist_unit", "km")
-                max_dist      = st.session_state.get("max_dist_km" if dist_unit == "km" else "max_dist_min", None)
-                if user_location and max_dist is not None:
-                    speed_kmh = {"walking": 5, "bicycling": 15, "driving": 40, "transit": 25}.get(
-                        st.session_state.get("travel_mode", "walking"), 5
-                    )
+                if location_filter_applied:
+                    travel_mode = st.session_state.get("travel_mode", "walking")
+                    speed_kmh = {"walking": 5, "bicycling": 15, "driving": 40, "transit": 25}.get(travel_mode, 5)
                     max_km = max_dist if dist_unit == "km" else (max_dist / 60) * speed_kmh
+
+                    # Stage 1: haversine pre-filter with 1.5x buffer to limit route API calls
                     active_products = {
                         ean: p for ean, p in active_products.items()
                         if p.get("store_lat") and p.get("store_lng")
                         and haversine_km(
                             user_location["lat"], user_location["lng"],
                             float(p["store_lat"]), float(p["store_lng"]),
-                        ) <= max_km
+                        ) <= max_km * 1.5
                     }
 
-                recipes, sections = run_recipe_pipeline(
+                    # Stage 2: route API post-filter using actual travel distance/time
+                    store_coords = {
+                        p["store_name"]: (float(p["store_lat"]), float(p["store_lng"]))
+                        for p in active_products.values()
+                        if p.get("store_name") and p.get("store_lat") and p.get("store_lng")
+                    }
+                    if store_coords:
+                        dest_key = tuple(
+                            (name, lat, lng) for name, (lat, lng) in store_coords.items()
+                        )
+                        try:
+                            routes = routes_cached(
+                                user_location["formatted_address"], dest_key, travel_mode
+                            )
+                            if dist_unit == "km":
+                                passing = {
+                                    r["store_name"] for r in routes
+                                    if r.get("distance_meters") and r["distance_meters"] / 1000 <= max_dist
+                                }
+                            else:
+                                passing = {
+                                    r["store_name"] for r in routes
+                                    if r.get("duration_seconds") and r["duration_seconds"] / 60 <= max_dist
+                                }
+                            active_products = {
+                                ean: p for ean, p in active_products.items()
+                                if p.get("store_name") in passing
+                            }
+                        except Exception:
+                            pass  # fall back to haversine pre-filtered set if routes API fails
+
+                summary["active_products_in_pool"] = len(active_products)
+                if location_filter_applied:
+                    unique_stores = sorted(set(
+                        p["store_name"]
+                        for p in active_products.values()
+                        if p.get("store_name")
+                    ))
+                    summary["nearby_stores"] = " | ".join(unique_stores)
+
+                recipes, sections, products_per_recipe = run_recipe_pipeline(
                     query           = user_query,
                     chroma          = get_chroma(),
                     max_minutes     = max_minutes,
                     active_products = active_products,
                 )
+
+                summary["recipes_found"] = len(recipes)
+
+                for i, (recipe, section, plist) in enumerate(zip(recipes, sections, products_per_recipe), start=1):
+                    summary[f"recipe_{i}_title"]                    = recipe.get("title", "")
+                    summary[f"recipe_{i}_substitutions_made"]       = section.upper().count("[TILBUD]")
+                    summary[f"recipe_{i}_candidate_eans"]           = " | ".join(str(p["product_ean"]) for _, p in plist)
+                    summary[f"recipe_{i}_candidate_descriptions"]   = " | ".join(p.get("product_description", "") for _, p in plist)
+
+                summary["pipeline_status"] = "success"
+
             except Exception as exc:
+                summary["failed_step"] = "pipeline"
                 st.error(f"Pipeline failed: {exc}")
-                return
+
+            finally:
+                summary["duration_seconds"] = round(time.time() - start_time, 2)
+                log_run(summary)
+
+        if summary["pipeline_status"] == "failed":
+            return
 
         if not recipes:
             st.warning(

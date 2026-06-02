@@ -12,6 +12,7 @@ import math
 import os
 import requests
 import polyline
+import streamlit as st
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -171,6 +172,16 @@ def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
          + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
          * math.sin(dlng / 2) ** 2)
     return R * 2 * math.asin(math.sqrt(a))
+
+
+@st.cache_data(ttl=3600)
+def routes_cached(
+    origin: str,
+    destinations: tuple,  # tuple of (store_name, lat, lng) — hashable for cache key
+    mode: str,
+) -> list[dict]:
+    dest_dicts = [{"store_name": n, "lat": lat, "lng": lng} for n, lat, lng in destinations]
+    return get_routes(origin, dest_dicts, mode=mode)
 
 
 def nearest_stores(

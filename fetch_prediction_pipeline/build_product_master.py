@@ -11,9 +11,11 @@ Usage:
 """
 
 import argparse
+import csv
 import sys
+import time
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 import chromadb
 import pandas as pd
@@ -22,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from fetch_prediction_pipeline.store_sql import get_connection, init_products_table
 from ml_pipeline.build_features import engineer_category
 from rag_pipeline.embeddings import embed_product
+from config import OUTPUTS_DIR
 
 CHROMA_PATH = "data/chroma_db"
 CHROMA_COLLECTION = "clearance_products"
@@ -131,6 +134,7 @@ def sync_to_mysql(master: pd.DataFrame) -> None:
     cursor.close()
     conn.close()
     print(f"Inserted: {inserted}  |  Updated (desc changed): {updated}  |  Refreshed (stats only): {skipped}")
+    return inserted, updated, skipped
 
 
 def sync_to_chroma(master: pd.DataFrame, reset: bool = False) -> None:
@@ -181,6 +185,18 @@ def sync_to_chroma(master: pd.DataFrame, reset: bool = False) -> None:
             failed += 1
 
     print(f"ChromaDB sync done. {ok} embedded, {failed} failed.")
+    return len(existing_ids), ok, failed
+
+
+def log_run(summary: dict) -> None:
+    OUTPUTS_DIR.mkdir(exist_ok=True)
+    log_path = OUTPUTS_DIR / "product_master_log.csv"
+    file_exists = log_path.is_file()
+    with open(log_path, mode="a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=summary.keys())
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(summary)
 
 
 def main():
@@ -188,16 +204,56 @@ def main():
     parser.add_argument("--reset-chroma", action="store_true", help="Delete and rebuild the clearance_products ChromaDB collection from scratch")
     args = parser.parse_args()
 
-    print("Building product master list...")
-    master = build_master()
-    print(f"Unique products: {len(master)}")
+    start_time = time.time()
+    summary = {
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        "run_duration_seconds": None,
+        "total_unique_products": None,
+        "mysql_inserted": None,
+        "mysql_updated": None,
+        "mysql_refreshed": None,
+        "chroma_already_present": None,
+        "chroma_embedded": None,
+        "chroma_failed": None,
+        "pipeline_status": "failed",
+        "failed_step": "",
+    }
 
-    print("Syncing to MySQL products table...")
-    sync_to_mysql(master)
+    try:
+        print("Building product master list...")
+        master = build_master()
+        summary["total_unique_products"] = len(master)
+        print(f"Unique products: {len(master)}")
 
-    print("Syncing embeddings to ChromaDB...")
-    sync_to_chroma(master, reset=args.reset_chroma)
-    print("Done.")
+        print("Syncing to MySQL products table...")
+        inserted, updated, refreshed = sync_to_mysql(master)
+        summary["mysql_inserted"] = inserted
+        summary["mysql_updated"] = updated
+        summary["mysql_refreshed"] = refreshed
+
+        print("Syncing embeddings to ChromaDB...")
+        already_present, embedded, failed = sync_to_chroma(master, reset=args.reset_chroma)
+        summary["chroma_already_present"] = already_present
+        summary["chroma_embedded"] = embedded
+        summary["chroma_failed"] = failed
+
+        summary["pipeline_status"] = "success"
+        print("Done.")
+
+    except Exception as exc:
+        if summary["total_unique_products"] is None:
+            summary["failed_step"] = "build_master"
+        elif summary["mysql_inserted"] is None:
+            summary["failed_step"] = "mysql_sync"
+        else:
+            summary["failed_step"] = "chroma_sync"
+        print(f"Pipeline failed at {summary['failed_step']}: {exc}", file=sys.stderr)
+        raise
+
+    finally:
+        summary["run_duration_seconds"] = round(time.time() - start_time, 2)
+        log_run(summary)
+        print(f"  [run_log]  Row appended to outputs/product_master_log.csv")
 
 
 if __name__ == "__main__":

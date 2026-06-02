@@ -251,19 +251,29 @@ def _format_products_for_llm(
     sections = []
     for i, (recipe, products) in enumerate(zip(recipes, products_per_recipe), start=1):
         title = recipe.get("title", f"Opskrift {i}")
+        ingredients = ", ".join(recipe.get("ingredients", []))
         if not products:
             sections.append(
-                f"Tilbud til opskrift {i} ({title}):\n  (ingen matchende tilbud fundet)"
+                f"Tilbud til opskrift {i} ({title}):\n"
+                f"Ingrediensliste: {ingredients}\n"
+                f"Kandidatvarer:\n  (ingen matchende tilbud fundet)"
             )
             continue
-        lines = [f"Tilbud til opskrift {i} ({title}):"]
-        for similarity, p in products:
-            end = p["offer_end_time"].strftime("%d. %b") if p.get("offer_end_time") else "?"
+        ingredients = ", ".join(recipe.get("ingredients", []))
+        lines = [
+            f"Tilbud til opskrift {i} ({title}):",
+            f"Ingrediensliste: {ingredients}",
+            "Kandidatvarer:",
+        ]
+        for _, p in products:
+            end  = p["offer_end_time"].strftime("%d. %b") if p.get("offer_end_time") else "?"
+            cat1 = p.get("category_level1_da", "")
+            cat2 = p.get("category_level2_da", "")
+            category = f"{cat1} | {cat2}" if cat1 else cat2
             lines.append(
-                f"  - {p['product_description']} | {p['category_level2_da']} | "
+                f"  - {p['product_description']} | {category} | "
                 f"{p['offer_new_price']:.2f} kr ({p['offer_percent_discount']:.0f}% rabat) | "
-                f"{p['store_name']}, {p['store_city']} | Tilbud slutter: {end} "
-                f"[match: {similarity:.2f}]"
+                f"{p['store_name']}, {p['store_city']} | Tilbud slutter: {end}"
             )
         sections.append("\n".join(lines))
     return "\n\n".join(sections)
@@ -333,11 +343,12 @@ def run_recipe_pipeline(
     chroma,
     max_minutes: int | None = None,
     active_products: dict[str, dict] | None = None,
-) -> tuple[list[dict], list[str]]:
-    """Run stages 1-9 and return (recipes, llm_sections).
+) -> tuple[list[dict], list[str], list[list[tuple[float, dict]]]]:
+    """Run stages 1-9 and return (recipes, llm_sections, products_per_recipe).
 
-    recipes       list of recipe dicts from MongoDB (for UI display)
-    llm_sections  list of ingredient strings from the LLM (one per recipe)
+    recipes             list of recipe dicts from MongoDB (for UI display)
+    llm_sections        list of ingredient strings from the LLM (one per recipe)
+    products_per_recipe list of candidate product lists fed to the LLM (one per recipe)
 
     Pass active_products to skip Stage 3 (useful when the caller caches it).
     """
@@ -349,7 +360,7 @@ def run_recipe_pipeline(
     # Stage 2
     recipes = filter_recipes_by_time(candidates, max_minutes)
     if not recipes:
-        return [], []
+        return [], [], []
 
     # Stage 3 (skipped if caller provides pre-fetched products)
     if active_products is None:
@@ -370,7 +381,7 @@ def run_recipe_pipeline(
     # Stage 9
     sections = parse_llm_response(raw)
 
-    return recipes, sections
+    return recipes, sections, products_per_recipe
 
 
 # ── CLI entry point ───────────────────────────────────────────────────────────
@@ -384,7 +395,7 @@ def main() -> None:
     print(f"Query: {user_query}\n")
 
     chroma = _chroma_client()
-    recipes, sections = run_recipe_pipeline(user_query, chroma)
+    recipes, sections, _ = run_recipe_pipeline(user_query, chroma)
 
     for recipe, section in zip(recipes, sections):
         print(f"\n{'=' * 60}")

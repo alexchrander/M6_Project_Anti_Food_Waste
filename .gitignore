@@ -3,7 +3,6 @@
 *data/predictions/
 venv/
 .DS_Store
-*test_connections.py
 .venv/
 __pycache__/
 *.pyc

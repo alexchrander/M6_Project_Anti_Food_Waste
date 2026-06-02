@@ -13,7 +13,7 @@ from datetime import datetime
 
 from store_sql import get_connection
 from config import PREDICTION_THRESHOLD
-from maps_utils import geocode, get_routes, nearest_stores, haversine_km
+from maps_utils import geocode, get_routes, nearest_stores, haversine_km, routes_cached
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s — %(levelname)s — %(message)s")
 log = logging.getLogger(__name__)
@@ -49,15 +49,6 @@ def load_predictions() -> tuple[pd.DataFrame, str, str, str, str]:
 def geocode_cached(address: str) -> dict:
     return geocode(address)
 
-
-@st.cache_data(ttl=3600)
-def routes_cached(
-    origin: str,
-    destinations: tuple,   # tuple of (store_name, lat, lng) — hashable for cache key
-    mode: str,
-) -> list[dict]:
-    dest_dicts = [{"store_name": n, "lat": lat, "lng": lng} for n, lat, lng in destinations]
-    return get_routes(origin, dest_dicts, mode=mode)
 
 
 # ── UI helpers ─────────────────────────────────────────────────────────────────
@@ -188,15 +179,28 @@ def _render_card(row: pd.Series, dist_unit: str = "km") -> None:
 
 # ── Main app ───────────────────────────────────────────────────────────────────
 
+def _is_aalborg_address(formatted_address: str) -> bool:
+    addr_lower = formatted_address.lower()
+    return "9000" in addr_lower or "aalborg" in addr_lower
+
+
 def main() -> None:
-    st.title("🛒 Clearance Offers - Aalborg")
+    st.title("🛒 Clearance Offers")
     st.markdown("*Live clearance offers ranked by sell-through probability*")
+
+    st.info(
+        "**This app only covers Aalborg (postal code 9000).**  "
+        "Offers are fetched exclusively from **Salling Group** stores "
+        "(Netto, Bilka & Føtex) located in Aalborg.  \n"
+        "Please enter a **9000 Aalborg address** below to find nearby stores.",
+        icon="📍",
+    )
 
     # ── Location input ─────────────────────────────────────────────────────────
     loc_col, btn_col = st.columns([5, 1])
     with loc_col:
         address_input = st.text_input(
-            "📍 Your location",
+            "📍 Your location (9000 Aalborg)",
             value=st.session_state.get("user_address", ""),
             placeholder="e.g. Boulevarden 13, 9000 Aalborg or Nørregade 10, 9000 Aalborg",
             label_visibility="collapsed",
@@ -219,8 +223,15 @@ def main() -> None:
     if locate_btn and address_input:
         try:
             loc = geocode_cached(address_input)
-            st.session_state["user_address"]  = address_input
-            st.session_state["user_location"] = loc
+            if not _is_aalborg_address(loc.get("formatted_address", "") + address_input):
+                st.warning(
+                    "That address doesn't appear to be in Aalborg (9000). "
+                    "This app only covers stores in Aalborg - please enter a 9000 Aalborg address."
+                )
+                st.session_state.pop("user_location", None)
+            else:
+                st.session_state["user_address"]  = address_input
+                st.session_state["user_location"] = loc
         except Exception as exc:
             st.warning(f"Could not find that address: {exc}")
             st.session_state.pop("user_location", None)
@@ -343,7 +354,7 @@ def main() -> None:
         st.divider()
         sort_by = st.radio(
             "Sort by",
-            options=["Sell probability", "Savings (kr)", "Savings (%)", "Closest Stores"],
+            options=["Sell probability", "Savings (kr)", "Savings (%)", "Closest stores"],
             horizontal=False,
         )
 
@@ -410,7 +421,7 @@ def main() -> None:
         df = df.sort_values("offer_discount", ascending=False).reset_index(drop=True)
     elif sort_by == "Savings (%)":
         df = df.sort_values("offer_percent_discount", ascending=False).reset_index(drop=True)
-    elif sort_by == "Closest Stores" and user_location:
+    elif sort_by == "Closest stores" and user_location:
         sort_col = "distance_to_user" if dist_unit == "km" else "time_to_user"
         df = df.sort_values(sort_col, ascending=True).reset_index(drop=True)
     else:
