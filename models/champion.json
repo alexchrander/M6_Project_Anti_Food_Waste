@@ -1,14 +1,13 @@
 {
     "model_type": "lightgbm",
-    "mlflow_run_id": "f76c02606a48437781a9381a0c57d9b0",
-    "trained_on": "2026-06-01",
+    "mlflow_run_id": "85ca74c8fbe44e729b44c1584597ca85",
+    "trained_on": "2026-06-03",
     "sell_threshold": 0.8,
     "pr_auc_threshold": 0.85,
     "prediction_threshold": 0.5,
-    "pr_auc": 0.8112,
-    "f1": 0.6759,
-    "recall": 0.6367,
-    "precision": 0.7202,
-    "log_loss": 0.4964,
-    "evaluated_on": "2026-06-02"
+    "pr_auc": 0.8253,
+    "f1": 0.6834,
+    "recall": 0.6401,
+    "precision": 0.733,
+    "log_loss": 0.4877
 }

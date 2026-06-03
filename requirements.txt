@@ -12,6 +12,7 @@ lxml
 pymongo
 chromadb==1.5.9
 google-genai
+pydantic
 numpy
 umap-learn
 plotly

@@ -57,7 +57,7 @@ def build_recipe_pdf(
     description: str,
     total_time: str,
     servings: str,
-    ingredients_md: str,
+    ingredients,
     instructions: list[dict],
     recipe_url: str = "",
 ) -> bytes:
@@ -103,21 +103,24 @@ def build_recipe_pdf(
     pdf.cell(w, 8, "Ingredienser", ln=True)
     pdf.ln(1)
 
-    for line in ingredients_md.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        if line.startswith("- ") or line.startswith("* "):
-            line = line[2:]
-        is_sub = "[TILBUD]" in line.upper()
-        if is_sub:
+    for ing in ingredients:
+        if ing.substitution:
+            sub = ing.substitution
+            price_str = f"{sub.price:.2f} kr".replace(".", ",")
+            line = f"{ing.text} -> {sub.product_name}, {sub.store}, {price_str} ({sub.discount_percent:.0f}% rabat)"
             pdf.set_text_color(39, 174, 96)
             pdf.set_font("Helvetica", "B", 10)
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(w, 6, _pdf_safe(line))
+            if sub.note:
+                pdf.set_font("Helvetica", "I", 9)
+                pdf.set_x(pdf.l_margin)
+                pdf.multi_cell(w, 5, _pdf_safe(f"  ({sub.note})"))
         else:
             pdf.set_text_color(0, 0, 0)
             pdf.set_font("Helvetica", "", 10)
-        pdf.set_x(pdf.l_margin)
-        pdf.multi_cell(w, 6, _pdf_safe(line))
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(w, 6, _pdf_safe(ing.text))
 
     pdf.set_text_color(0, 0, 0)
     pdf.ln(4)
@@ -143,32 +146,29 @@ def build_recipe_pdf(
 
 # ── UI helpers ────────────────────────────────────────────────────────────────
 
-def _render_ingredients(ingredients: str) -> None:
-    """Colour-code substitution lines green.
-
-    LLM format: - 200 g smør -> [TILBUD] LURPAK SMØR, Netto Aalborg, 22,00 kr
-    """
+def _render_ingredients(ingredients) -> None:
+    """Render a list of Ingredient objects, colouring substitutions green."""
     if not ingredients:
         st.caption("Ingen ingredienser fundet.")
         return
 
     html_lines = []
-    for line in ingredients.splitlines():
-        stripped = line.strip().lstrip("- *")
-        if not stripped:
-            continue
-        if "[TILBUD]" in stripped.upper() and "->" in stripped:
-            orig, sub = stripped.split("->", 1)
+    for ing in ingredients:
+        if ing.substitution:
+            sub = ing.substitution
+            price_str = f"{sub.price:.2f} kr".replace(".", ",")
+            sub_text = f"{sub.product_name}, {sub.store}, {price_str} ({sub.discount_percent:.0f}% rabat)"
             html_lines.append(
-                f"{orig.strip()} "
-                f"<span style='color:#27ae60;font-weight:600'>&#8594; {sub.strip()}</span>"
+                f"{ing.text} "
+                f"<span style='color:#27ae60;font-weight:600'>&#8594; {sub_text}</span>"
             )
-        elif "[TILBUD]" in stripped.upper():
-            html_lines.append(
-                f"<span style='color:#27ae60;font-weight:600'>{stripped}</span>"
-            )
+            if sub.note:
+                html_lines.append(
+                    f"<span style='color:#27ae60;font-style:italic;font-size:0.9em'>"
+                    f"({sub.note})</span>"
+                )
         else:
-            html_lines.append(stripped)
+            html_lines.append(ing.text)
 
     st.markdown("<br>".join(html_lines), unsafe_allow_html=True)
 
@@ -428,11 +428,16 @@ def main() -> None:
 
                 summary["recipes_found"] = len(recipes)
 
+                ean_by_name = {
+                    p.get("product_description", ""): str(p["product_ean"])
+                    for _, p in [pair for plist in products_per_recipe for pair in plist]
+                }
                 for i, (recipe, section, plist) in enumerate(zip(recipes, sections, products_per_recipe), start=1):
+                    subs = [ing.substitution for ing in section.ingredients if ing.substitution is not None]
                     summary[f"recipe_{i}_title"]                    = recipe.get("title", "")
-                    summary[f"recipe_{i}_substitutions_made"]       = section.upper().count("[TILBUD]")
-                    summary[f"recipe_{i}_candidate_eans"]           = " | ".join(str(p["product_ean"]) for _, p in plist)
-                    summary[f"recipe_{i}_candidate_descriptions"]   = " | ".join(p.get("product_description", "") for _, p in plist)
+                    summary[f"recipe_{i}_substitutions_made"]       = len(subs)
+                    summary[f"recipe_{i}_candidate_eans"]           = " | ".join(ean_by_name.get(s.product_name, "") for s in subs)
+                    summary[f"recipe_{i}_candidate_descriptions"]   = " | ".join(s.product_name for s in subs)
 
                 summary["pipeline_status"] = "success"
 
@@ -472,7 +477,7 @@ def main() -> None:
     st.subheader("Your recipes")
 
     cols = st.columns(len(recipes))
-    for i, (col, recipe, ingredients) in enumerate(zip(cols, recipes, sections)):
+    for i, (col, recipe, recipe_result) in enumerate(zip(cols, recipes, sections)):
         with col:
             img_url = recipe.get("image_url", "")
             if img_url:
@@ -510,7 +515,7 @@ def main() -> None:
             st.divider()
 
             st.markdown("**Ingredienser**")
-            _render_ingredients(ingredients)
+            _render_ingredients(recipe_result.ingredients)
 
             st.divider()
 
@@ -526,7 +531,7 @@ def main() -> None:
                     description  = description,
                     total_time   = total_time,
                     servings     = servings,
-                    ingredients_md = ingredients,
+                    ingredients  = recipe_result.ingredients,
                     instructions = instructions,
                     recipe_url   = recipe_url,
                 ),

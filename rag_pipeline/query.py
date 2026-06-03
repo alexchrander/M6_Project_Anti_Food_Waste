@@ -15,7 +15,7 @@ Stages
 6. cross_reference_active       keep only hits present in today's SQL pool
 7. assemble_llm_prompt          format recipes + products into LLM messages
 8. call_llm                     Gemini API call
-9. parse_llm_response           JSON → list of per-recipe ingredient strings
+9. parse_llm_response           PipelineOutput → list[RecipeResult]
 """
 
 import json
@@ -29,12 +29,39 @@ import mysql.connector
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from pydantic import BaseModel
 from pymongo import MongoClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from embeddings import embed_query  # noqa: E402
 
 load_dotenv()
+
+
+# ── Output schema ─────────────────────────────────────────────────────────────
+
+class ClearanceSubstitution(BaseModel):
+    product_name: str
+    store: str
+    price: float
+    discount_percent: float
+    note: str | None = None
+
+
+class Ingredient(BaseModel):
+    text: str
+    substitution: ClearanceSubstitution | None = None
+
+
+class RecipeResult(BaseModel):
+    ingredients: list[Ingredient]
+
+
+class PipelineOutput(BaseModel):
+    opskrift_1: RecipeResult
+    opskrift_2: RecipeResult
+    opskrift_3: RecipeResult
+
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -299,41 +326,25 @@ def assemble_llm_prompt(
 
 # ── Stage 8: call LLM ─────────────────────────────────────────────────────────
 
-def call_llm(system: str, user: str) -> str:
+def call_llm(system: str, user: str) -> PipelineOutput:
     client   = genai.Client(api_key=os.getenv("GOOGLE_GEMINI_API_KEY"))
     response = client.models.generate_content(
         model    = LLM_MODEL,
         contents = user,
         config   = types.GenerateContentConfig(
-            system_instruction  = system,
-            response_mime_type  = "application/json",
+            system_instruction = system,
+            response_mime_type = "application/json",
+            response_schema    = PipelineOutput,
         ),
     )
-    return response.text
+    return PipelineOutput.model_validate_json(response.text)
 
 
 # ── Stage 9: parse LLM response ───────────────────────────────────────────────
 
-def parse_llm_response(raw: str) -> list[str]:
-    """Parse LLM JSON into a list of ingredient strings, one per recipe."""
-    try:
-        data = json.loads(raw)
-        if isinstance(data, dict):
-            sections = [
-                str(data.get("opskrift_1", "")).strip(),
-                str(data.get("opskrift_2", "")).strip(),
-                str(data.get("opskrift_3", "")).strip(),
-            ]
-        elif isinstance(data, list):
-            sections = [str(s).strip() for s in data[:3]]
-        else:
-            sections = []
-    except (json.JSONDecodeError, TypeError):
-        parts    = re.split(r"={2,}\s*OPSKRIFT[_\s]?\d+\s*={2,}", raw, flags=re.IGNORECASE)
-        sections = [p.strip() for p in parts[1:4]]
-    while len(sections) < 3:
-        sections.append("")
-    return sections
+def parse_llm_response(output: PipelineOutput) -> list[RecipeResult]:
+    """Unpack the three recipe results from the validated LLM output."""
+    return [output.opskrift_1, output.opskrift_2, output.opskrift_3]
 
 
 # ── Orchestrator ──────────────────────────────────────────────────────────────
@@ -343,11 +354,11 @@ def run_recipe_pipeline(
     chroma,
     max_minutes: int | None = None,
     active_products: dict[str, dict] | None = None,
-) -> tuple[list[dict], list[str], list[list[tuple[float, dict]]]]:
-    """Run stages 1-9 and return (recipes, llm_sections, products_per_recipe).
+) -> tuple[list[dict], list[RecipeResult], list[list[tuple[float, dict]]]]:
+    """Run stages 1-9 and return (recipes, recipe_results, products_per_recipe).
 
     recipes             list of recipe dicts from MongoDB (for UI display)
-    llm_sections        list of ingredient strings from the LLM (one per recipe)
+    recipe_results      list of RecipeResult objects from the LLM (one per recipe)
     products_per_recipe list of candidate product lists fed to the LLM (one per recipe)
 
     Pass active_products to skip Stage 3 (useful when the caller caches it).
@@ -376,10 +387,10 @@ def run_recipe_pipeline(
     system, user_message = assemble_llm_prompt(query, recipes, products_per_recipe)
 
     # Stage 8
-    raw = call_llm(system, user_message)
+    output = call_llm(system, user_message)
 
     # Stage 9
-    sections = parse_llm_response(raw)
+    sections = parse_llm_response(output)
 
     return recipes, sections, products_per_recipe
 
@@ -400,7 +411,14 @@ def main() -> None:
     for recipe, section in zip(recipes, sections):
         print(f"\n{'=' * 60}")
         print(f"Opskrift: {recipe.get('title')}")
-        print(section)
+        for ing in section.ingredients:
+            if ing.substitution:
+                sub = ing.substitution
+                print(f"  - {ing.text} → {sub.product_name}, {sub.store}, {sub.price:.2f} kr ({sub.discount_percent:.0f}% rabat)")
+                if sub.note:
+                    print(f"    ({sub.note})")
+            else:
+                print(f"  - {ing.text}")
 
 
 if __name__ == "__main__":
