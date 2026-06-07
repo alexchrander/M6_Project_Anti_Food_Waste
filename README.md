@@ -1,5 +1,5 @@
 # Anti Food Waste - Aalborg
-Predicts which clearance offers from Salling Group stores are likely to sell before expiry, and recommends recipes that use those products - served through a Streamlit dashboard with a live fetch-, prediction-, ML-, and RAG pipeline.
+Predicts which clearance offers from Salling Group stores are likely to sell before expiry, and suggests recipes that use those products - served through a Streamlit dashboard with a live fetch-, prediction-, ML-, and RAG pipeline.
 
 **Live App:** [https://app-food-waste.cloud.sdu.dk/](https://app-food-waste.cloud.sdu.dk/)
 
