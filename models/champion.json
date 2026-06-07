@@ -5,10 +5,10 @@
     "sell_threshold": 0.8,
     "pr_auc_threshold": 0.85,
     "prediction_threshold": 0.5,
-    "pr_auc": 0.8125,
-    "f1": 0.673,
-    "recall": 0.6503,
-    "precision": 0.6972,
-    "log_loss": 0.4698,
-    "evaluated_on": "2026-06-06"
+    "pr_auc": 0.8375,
+    "f1": 0.69,
+    "recall": 0.6428,
+    "precision": 0.7447,
+    "log_loss": 0.4694,
+    "evaluated_on": "2026-06-07"
 }
