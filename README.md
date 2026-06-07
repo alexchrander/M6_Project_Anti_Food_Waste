@@ -3,7 +3,7 @@ Predicts which clearance offers from Salling Group stores are likely to sell bef
 
 **Live App:** [https://app-food-waste.cloud.sdu.dk/](https://app-food-waste.cloud.sdu.dk/)
 
-## Project structure
+## Project Structure
 
 ```
 # Folders
@@ -24,13 +24,6 @@ README.md                    # This file
 config.py                    # Shared configuration and constants across the full pipeline
 crontab                      # Cron schedule for the fetch-, prediction-, and ML pipelines
 requirements.txt             # Python dependencies
-```
-
-### .gitignore file
-```
-*.env                        # Required environment variables
-*mlruns/                     # Saved model artifacts from each retraining
-*data/predictions/           # Prediction data
 ```
 
 ## Pipeline Diagram
